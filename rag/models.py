@@ -18,7 +18,7 @@ class UploadedDocument(models.Model):
     file = models.FileField(upload_to="uploads/documents", verbose_name="Uploaded file")
     file_type = models.CharField(max_length=10, choices=FILE_TYPES_CHOICES, verbose_name="File type")
     file_size = models.BigIntegerField(default=0, verbose_name="File size")
-    is_processed = models.BigIntegerField(default=False, verbose_name="Is processed")
+    is_processed = models.BooleanField(default=False, verbose_name="Is processed")
     processing_error = models.TextField(default=False, null=True, blank=True, verbose_name="Error processing file")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Created at")
     updated_at = models.DateTimeField(auto_now_add=True, verbose_name="Updated at")
@@ -47,7 +47,7 @@ class DocumemtsChunks(models.Model):
     chunk_text = models.TextField(verbose_name="Chunk text")
     chunk_size = models.IntegerField(default=0, verbose_name="Chunks size")
     chunk_index = models.IntegerField(verbose_name="Chunks index")
-    embedding = models.JSONField(verbose_name="Embedding")
+    embedding = models.JSONField(verbose_name="Embedding", null=True, blank=True)
     page_number = models.IntegerField(default=0, verbose_name="Page number")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Created at")
     

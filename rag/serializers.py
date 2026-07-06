@@ -17,9 +17,9 @@ class UploadedDocumentSerializer(serializers.ModelSerializer):
         if value.size > max_size:
             raise serializers.ValidationError("File size must be less than 50MB")
         
-        allow_extention = ['pdf', 'docx', 'doc', 'text']
+        allow_extention = ['pdf', 'docx', 'doc', 'txt']
         extention = value.name.split('.')[-1].lower()
-        if value.extention not in allow_extention:
+        if extention not in allow_extention:
             raise serializers.ValidationError(f"Only {allow_extention} allowed")
         return value
      

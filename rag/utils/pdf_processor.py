@@ -4,6 +4,7 @@ import fitz
 import docx
 
 from rag.models import DocumemtsChunks,UploadedDocument
+from rag.utils.vector_store import store_document_chunks
  
 
 def extract_text_from_pdf(file_path):
@@ -12,14 +13,14 @@ def extract_text_from_pdf(file_path):
     page_text = []
     pfd_document = fitz.open(file_path)
 
-    for page_num in range(len(pdf_document)):
-        page = pdf_document[page_num]
+    for page_num in range(len(pfd_document)):
+        page = pfd_document[page_num]
         text = page.get_text()
 
         if text.split():
-            page_text.append(page_num + 1, text)
-        pfd_document.close()
-        return page_text
+            page_text.append((page_num + 1, text))
+    pfd_document.close()
+    return page_text
 
 
 def extract_text_from_txt(file_path):
@@ -89,8 +90,8 @@ def create_chunks(page_texts, chunk_size=500, chunk_overlap=50):
             chunk_text = ' '.join(chunk_word)
 
             chunk.append({
-                "text":chunk_text,
-                "page":page_num,
+                "chunk_text":chunk_text,
+                "page_number":page_num,
                 "chunk_index":chunk_index,
                 "size":len(chunk_word)
             })
@@ -157,7 +158,10 @@ def process_document(document):
         )
         
     DocumemtsChunks.objects.bulk_create(chunks_obj)
-    document.is_processing = True
+    
+    store_document_chunks(document.id)
+    
+    document.is_processed = True
     document.processing_error = None
     document.save()
 
