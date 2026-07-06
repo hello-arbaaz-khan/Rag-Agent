@@ -1,4 +1,3 @@
-from pymupdf.mupdf import pdf_document
 import re
 import fitz
 import docx
@@ -117,46 +116,34 @@ def process_document(document):
     2. Clean text
     3. Chunk it
     4. Save chunks to DB
+    5. Create embeddings and store in ChromaDB
+    6. Mark document as processed
     """
-
     extractor = get_extractor(document.file_type)
-
     if not extractor:
         raise ValueError(f"File type {document.file_type} is not supported")
 
     file_path = document.file.path
     pages_text = extractor(file_path)
-
     if not pages_text:
         raise ValueError("File is empty")
 
-
-    chunks = create_chunks(
-        pages_text,
-        chunk_size=500,
-        chunk_overlap=50
-    )
-
+    chunks = create_chunks(pages_text, chunk_size=500, chunk_overlap=50)
     if not chunks:
         raise ValueError("Chunks creation failed")
-    
-    # delete old chuks if exixts
-    DocumemtsChunks.objects.filter(document=document).delete()
-    
-    chunks_obj = []
 
-    for chunk in chunks:
-        chunks_obj.append(
-            DocumemtsChunks(
-                document=document,
-                chunk_text =chunk['chunk_text'],
-                chunk_index=chunk['chunk_index'],
-                page_number=chunk['page_number'],
-                chunk_size=chunk['size']
-                # embedding=None
-            )
+    DocumemtsChunks.objects.filter(document=document).delete()
+
+    chunks_obj = [
+        DocumemtsChunks(
+            document=document,
+            chunk_text=chunk['chunk_text'],
+            chunk_index=chunk['chunk_index'],
+            page_number=chunk['page_number'],
+            chunk_size=chunk['size']
         )
-        
+        for chunk in chunks
+    ]
     DocumemtsChunks.objects.bulk_create(chunks_obj)
     
     store_document_chunks(document.id)

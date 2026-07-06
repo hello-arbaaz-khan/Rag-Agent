@@ -1,6 +1,6 @@
 from rag.models import UploadedDocument
 from rag.utils.pdf_processor import process_document
-from rag.utils.vector_store import delete_document_collection, store_document_chunks
+from rag.utils.vector_store import delete_document_collection
 
 
 class DocumentService:
@@ -16,10 +16,7 @@ class DocumentService:
         )
 
         try:
-            chunk_count = process_document(document)
-            store_document_chunks(document.id)
-            document.is_processed = True
-            document.save()
+            process_document(document)
         except Exception as e:
             document.processing_error = str(e)
             document.save()

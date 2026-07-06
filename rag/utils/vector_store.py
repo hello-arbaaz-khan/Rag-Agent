@@ -117,9 +117,9 @@ def search_similar_chunks(question, document_id, top_k=3):
 
 def delete_document_collection(document_id):
     """ Delete document from chromadb also """
+    client = get_chroma_client()
     try:
-        client = get_chroma_client()
         client.delete_collection(name=f"document{document_id}")
         print(f"Document {document_id} deleted from chromadb")
     except Exception as e:
-        print(f"Chromadb delete error : {str(e)}")
+        raise ValueError(f"Failed to delete document {document_id} from chromadb: {str(e)}")

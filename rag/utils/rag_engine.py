@@ -7,11 +7,11 @@ client = Groq(
     api_key=config('GROQ_API_KEY')
 )
 
-def build_context(search_similar_chunks):
+def build_context(chunks):
 
     context_parts = []
 
-    for i,chunk in enumerate(search_similar_chunks):
+    for i, chunk in enumerate(chunks):
         context_parts.append(
             f"[Source {i+1} - Page {chunk['page_number']}]:\n"
             f"{chunk['text']}"
@@ -68,7 +68,7 @@ def calculate_confidence(similar_chunks):
     average_similarity = sum(similarities) / len(similarities)
     return round(average_similarity, 2)
 
-def get_answer(question,document_id):
+def get_answer(question, document_id):
 
     try:
         document = UploadedDocument.objects.get(id=document_id)
@@ -76,10 +76,11 @@ def get_answer(question,document_id):
         raise ValueError(f"Document {document_id} doesn't exist")
 
     similar_chunks = search_similar_chunks(
-        question = question,
-        document_id = document_id,
-        top_k = 3
+        question=question,
+        document_id=document_id,
+        top_k=3
     )
+    
     if not similar_chunks:
         return {
             "question": question,
@@ -89,15 +90,24 @@ def get_answer(question,document_id):
             "confidence_score": 0.0
         }
     
-    context = build_context(similar_chunks)
-    prompt = build_prompt(question,context)
-    answer = generate_answer(prompt)
-    confidence = calculate_confidence(similar_chunks)
-    
-    return {
-        "question":        question,
-        "answer":          answer,
-        "source_chunks":   similar_chunks,
-        "document_name":   document.name,
-        "confidence_score": confidence
-    }
+    try:
+        context = build_context(similar_chunks)
+        prompt = build_prompt(question, context)
+        answer = generate_answer(prompt)
+        confidence = calculate_confidence(similar_chunks)
+        
+        return {
+            "question": question,
+            "answer": answer,
+            "source_chunks": similar_chunks,
+            "document_name": document.name,
+            "confidence_score": confidence
+        }
+    except ValueError as e:
+        return {
+            "question": question,
+            "answer": f"Error generating answer: {str(e)}",
+            "source_chunks": similar_chunks,
+            "document_name": document.name,
+            "confidence_score": 0.0
+        }

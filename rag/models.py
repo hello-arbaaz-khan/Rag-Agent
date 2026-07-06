@@ -1,4 +1,3 @@
-from os import read
 from django.db import models
 
 # Create your models here.
@@ -19,7 +18,7 @@ class UploadedDocument(models.Model):
     file_type = models.CharField(max_length=10, choices=FILE_TYPES_CHOICES, verbose_name="File type")
     file_size = models.BigIntegerField(default=0, verbose_name="File size")
     is_processed = models.BooleanField(default=False, verbose_name="Is processed")
-    processing_error = models.TextField(default=False, null=True, blank=True, verbose_name="Error processing file")
+    processing_error = models.TextField(default="", null=True, blank=True, verbose_name="Error processing file")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Created at")
     updated_at = models.DateTimeField(auto_now_add=True, verbose_name="Updated at")
 
