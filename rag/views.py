@@ -9,7 +9,6 @@ from rag.models import UploadedDocument, DocumemtsChunks
 from rag.utils.pdf_processor import process_document
 from rag.utils.vector_store import delete_document_collection
 # Create your views here. 
-from rag.utils.rag_engine import get_answer
 
 
 class DocumentListCreateView(APIView):

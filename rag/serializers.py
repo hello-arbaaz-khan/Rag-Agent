@@ -8,9 +8,15 @@ class DocumentChunksSerializer(serializers.ModelSerializer):
 
 
 class UploadedDocumentSerializer(serializers.ModelSerializer):
+    chunk_count = serializers.SerializerMethodField()
+    
     class Meta:
         model = UploadedDocument
-        fields = '__all__'
+        fields = ['id', 'name', 'file', 'file_type', 'file_size', 'is_processed', 'processing_error', 'chunk_count', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'file_size', 'is_processed', 'processing_error', 'chunk_count', 'created_at', 'updated_at']
+
+    def get_chunk_count(self, obj):
+        return obj.chunk_count
 
     def validate_file(self, value):
         max_size = 50 * 1024 * 1024
@@ -21,6 +27,12 @@ class UploadedDocumentSerializer(serializers.ModelSerializer):
         extention = value.name.split('.')[-1].lower()
         if extention not in allow_extention:
             raise serializers.ValidationError(f"Only {allow_extention} allowed")
+        return value
+    
+    def validate_file_type(self, value):
+        allowed_types = ['pdf', 'docx', 'doc', 'txt']
+        if value not in allowed_types:
+            raise serializers.ValidationError(f"File type must be one of {allowed_types}")
         return value
 
 class DocumentListSerializer(serializers.ModelSerializer):

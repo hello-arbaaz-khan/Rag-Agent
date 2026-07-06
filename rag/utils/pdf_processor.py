@@ -105,6 +105,7 @@ def get_extractor(file_type):
     extractors = {
         "pdf": extract_text_from_pdf,
         "docx": extract_text_from_docx,
+        "doc": extract_text_from_docx,
         "txt": extract_text_from_txt
     }
     return extractors.get(file_type)
