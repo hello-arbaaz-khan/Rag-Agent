@@ -135,12 +135,18 @@ export const AppProvider = ({ children }) => {
     }
   }, []);
 
-  useEffect(() => {
-    loadDocuments();
-    // Refresh documents every 5 seconds to catch new uploads and status changes
-    const interval = setInterval(loadDocuments, 5000);
-    return () => clearInterval(interval);
-  }, [loadDocuments]);
+useEffect(() => {
+  loadDocuments();
+
+  const interval = setInterval(() => {
+    const hasProcessingDoc = state.documents.some(doc => !doc.is_processed);
+    if (hasProcessingDoc) {
+      loadDocuments();
+    }
+  }, 5000);
+
+  return () => clearInterval(interval);
+}, [loadDocuments, state.documents]);
 
   const selectedDocument = useMemo(
     () => state.documents.find((doc) => doc.id === state.selectedDocumentId) || null,
