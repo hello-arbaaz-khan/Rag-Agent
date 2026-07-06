@@ -34,9 +34,6 @@ class DocumentService:
         document.delete()
         return document
 
-class DocumentService:
-    # ... (pehle wale methods yahan rahenge: create_and_process, delete)
-
     @staticmethod
     def list_all():
         return UploadedDocument.objects.all().order_by("-created_at")
