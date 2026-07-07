@@ -1,6 +1,6 @@
 from rag.models import UploadedDocument
-from rag.utils.pdf_processor import process_document
 from rag.utils.vector_store import delete_document_collection
+from rag.utils.async_tasks import process_document_async
 
 
 class DocumentService:
@@ -15,12 +15,8 @@ class DocumentService:
             file_size=file.size,
         )
 
-        try:
-            process_document(document)
-        except Exception as e:
-            document.processing_error = str(e)
-            document.save()
-            raise
+        # Process document in background thread (non-blocking)
+        process_document_async(document.id)
 
         return document
 

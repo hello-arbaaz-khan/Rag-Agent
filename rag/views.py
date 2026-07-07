@@ -1,13 +1,10 @@
 from rag.services.document_service import DocumentService
 from rag.services.qa_service import QAService
-from rest_framework.parsers import MultiPartParser,FormParser
 from rest_framework.views import APIView
 from rest_framework import status
 from rest_framework.response import Response
-from rag.serializers import DocumentChunksSerializer,UploadedDocumentSerializer,DocumentListSerializer,DocumentDetailSerializer,QuestionSerializer,AnswerSerializer
-from rag.models import UploadedDocument, DocumemtsChunks
-from rag.utils.pdf_processor import process_document
-from rag.utils.vector_store import delete_document_collection
+from rag.serializers import UploadedDocumentSerializer,QuestionSerializer
+from rag.models import UploadedDocument
 # Create your views here. 
 
 
@@ -40,6 +37,8 @@ class DocumentListCreateView(APIView):
                 {"success": False, "message": f"Processing failed: {str(e)}"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
+
+
 class DocumentDetailView(APIView):
     def delete(self, request, document_id):
         try:

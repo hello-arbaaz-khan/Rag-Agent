@@ -1,7 +1,5 @@
 from groq import Groq
 from decouple import config
-from rag.models import DocumemtsChunks,UploadedDocument
-from rag.utils.vector_store import search_similar_chunks
 
 client = Groq(
     api_key=config('GROQ_API_KEY')

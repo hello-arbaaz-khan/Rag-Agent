@@ -138,15 +138,14 @@ export const AppProvider = ({ children }) => {
 useEffect(() => {
   loadDocuments();
 
+  // Only poll for list updates if no documents are processing
+  // (usePolling.js handles status updates for processing docs)
   const interval = setInterval(() => {
-    const hasProcessingDoc = state.documents.some(doc => !doc.is_processed);
-    if (hasProcessingDoc) {
-      loadDocuments();
-    }
-  }, 5000);
+    loadDocuments();
+  }, 10000);
 
   return () => clearInterval(interval);
-}, [loadDocuments, state.documents]);
+}, [loadDocuments]);
 
   const selectedDocument = useMemo(
     () => state.documents.find((doc) => doc.id === state.selectedDocumentId) || null,

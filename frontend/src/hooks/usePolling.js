@@ -1,37 +1,66 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useMemo } from "react";
 import { documentApi } from "../services/api";
 import { useAppContext } from "../context/AppContext";
 
 export const usePolling = () => {
   const { documents, dispatch, addToast } = useAppContext();
   const completedRef = useRef(new Set());
+  const intervalRef = useRef(null);
+
+  // Only track pending document IDs (not the full objects)
+  const pendingDocIds = useMemo(
+    () => documents
+      .filter((doc) => !Boolean(doc.is_processed) && !doc.processing_error)
+      .map(doc => doc.id),
+    [documents]
+  );
 
   useEffect(() => {
-    const pendingDocuments = documents.filter((doc) => !Boolean(doc.is_processed) && !doc.processing_error);
-    if (!pendingDocuments.length) return undefined;
+    if (pendingDocIds.length === 0) {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+      return;
+    }
 
     const poll = async () => {
       await Promise.all(
-        pendingDocuments.map(async (doc) => {
+        pendingDocIds.map(async (docId) => {
           try {
-            const status = await documentApi.getDocumentStatus(doc.id);
-            dispatch({ type: "UPSERT_DOCUMENT", payload: { ...doc, ...status } });
-            if (status.is_processed && !completedRef.current.has(doc.id)) {
-              completedRef.current.add(doc.id);
-              addToast(`${doc.name} finished processing.`, "success");
+            const status = await documentApi.getDocumentStatus(docId);
+            const doc = documents.find(d => d.id === docId);
+            if (doc) {
+              dispatch({ type: "UPSERT_DOCUMENT", payload: { ...doc, ...status } });
+              if (status.is_processed && !completedRef.current.has(docId)) {
+                completedRef.current.add(docId);
+                addToast(`${doc.name} finished processing.`, "success");
+              }
             }
           } catch (error) {
-            dispatch({
-              type: "UPSERT_DOCUMENT",
-              payload: { ...doc, processing_error: error.message }
-            });
+            const doc = documents.find(d => d.id === docId);
+            if (doc) {
+              dispatch({
+                type: "UPSERT_DOCUMENT",
+                payload: { ...doc, processing_error: error.message }
+              });
+            }
           }
         })
       );
     };
 
-    const intervalId = window.setInterval(poll, 3000);
-    poll();
-    return () => window.clearInterval(intervalId);
-  }, [documents, dispatch, addToast]);
+    // Poll every 5 seconds
+    if (!intervalRef.current) {
+      poll();
+      intervalRef.current = window.setInterval(poll, 5000);
+    }
+
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+    };
+  }, [pendingDocIds, documents, dispatch, addToast]);
 };
