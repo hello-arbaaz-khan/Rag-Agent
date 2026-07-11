@@ -1,9 +1,16 @@
-from groq import Groq
 from decouple import config
 
-client = Groq(
-    api_key=config('GROQ_API_KEY')
-)
+_client = None
+
+def get_client():
+    global _client
+    if _client is None:
+        api_key = config('GROQ_API_KEY', default=None)
+        if not api_key:
+            raise ValueError("GROQ_API_KEY is missing or empty. Please set it in your environment or .env file.")
+        from groq import Groq
+        _client = Groq(api_key=api_key)
+    return _client
 
 def build_context(chunks):
 
@@ -35,6 +42,7 @@ def generate_answer(prompt):
     Get answer from Grow API
     """
     try:
+        client = get_client()
         response = client.chat.completions.create(
             model="llama-3.1-8b-instant",  
             messages=[
@@ -50,6 +58,8 @@ def generate_answer(prompt):
         answer = response.choices[0].message.content
         return answer.strip()
 
+    except ValueError as ve:
+        raise ve
     except Exception as e:
         raise ValueError(f"Groq API error: {str(e)}")
 

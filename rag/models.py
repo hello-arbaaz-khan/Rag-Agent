@@ -13,11 +13,12 @@ class UploadedDocument(models.Model):
         ("txt", "TXT")
     ]
 
-    name = models.CharField(max_length=25, verbose_name = "File name")
+    name = models.CharField(max_length=255, verbose_name = "File name")
     file = models.FileField(upload_to="uploads/documents", verbose_name="Uploaded file")
     file_type = models.CharField(max_length=10, choices=FILE_TYPES_CHOICES, verbose_name="File type")
     file_size = models.BigIntegerField(default=0, verbose_name="File size")
     is_processed = models.BooleanField(default=False, verbose_name="Is processed")
+    processing_started_at = models.DateTimeField(null=True, blank=True, verbose_name="Processing started at")
     processing_error = models.TextField(default="", null=True, blank=True, verbose_name="Error processing file")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Created at")
     updated_at = models.DateTimeField(auto_now_add=True, verbose_name="Updated at")

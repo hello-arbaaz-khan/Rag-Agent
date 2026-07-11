@@ -6,7 +6,7 @@ import FileDropzone from "./FileDropzone";
 import Spinner from "../Common/Spinner";
 
 const UploadModal = ({ open, onClose }) => {
-  const { dispatch, addToast } = useAppContext();
+  const { dispatch, addToast, loadDocuments } = useAppContext();
   const [file, setFile] = useState(null);
   const [progress, setProgress] = useState(0);
   const [uploading, setUploading] = useState(false);
@@ -35,7 +35,7 @@ const UploadModal = ({ open, onClose }) => {
       
       // Reload documents to ensure frontend is synced with backend
       await new Promise(r => setTimeout(r, 500));
-      dispatch({ type: "LOAD_DOCUMENTS_REQUEST" });
+      await loadDocuments();
       
       addToast("Upload complete. Processing started.", "success");
       setFile(null);

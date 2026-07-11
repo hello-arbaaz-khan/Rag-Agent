@@ -22,9 +22,20 @@ class DocumentService:
 
     @staticmethod
     def delete(document_id):
+        import logging
+        from django.db import transaction
+        logger = logging.getLogger(__name__)
+
         document = UploadedDocument.objects.get(id=document_id)
-        delete_document_collection(document_id)
-        document.delete()
+        collection_name = f"document{document_id}"
+
+        with transaction.atomic():
+            document.delete()
+            try:
+                delete_document_collection(document_id)
+            except Exception as e:
+                logger.error("Failed to delete Chroma collection %s: %s. Collection is orphaned.", collection_name, e)
+                print(f"Failed to delete Chroma collection {collection_name}: {e}. Collection is orphaned.")
         return document
 
     @staticmethod

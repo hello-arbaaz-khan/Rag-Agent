@@ -60,7 +60,7 @@ class DocumentDetailSerializer(serializers.ModelSerializer):
     """
     This serializers is used to get detail of a specific document.
     """
-    chunk = DocumentChunksSerializer(read_only=True, many=True)
+    chunks = DocumentChunksSerializer(read_only=True, many=True)
     file_size = serializers.ReadOnlyField()
     chunk_count = serializers.ReadOnlyField()
 
@@ -75,7 +75,7 @@ class DocumentDetailSerializer(serializers.ModelSerializer):
             'chunk_count',
             'is_processed',
             'processing_error',
-            'chunk',
+            'chunks',
             'created_at',
             'updated_at'
         ]     
