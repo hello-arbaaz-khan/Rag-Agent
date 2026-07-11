@@ -90,31 +90,6 @@ def generate_answer(prompt):
         raise ValueError(f"Groq API error: {str(e)}")
 
 
-def generate_answer(prompt):
-    """
-    Get answer from Grow API
-    """
-    try:
-        client = get_client()
-        response = client.chat.completions.create(
-            model="llama-3.1-8b-instant",  
-            messages=[
-                {
-                    "role": "user",
-                    "content": prompt
-                }
-            ],
-            temperature=0.1,
-            max_tokens=500,
-        )
-
-        answer = response.choices[0].message.content
-        return answer.strip()
-
-    except ValueError as ve:
-        raise ve
-    except Exception as e:
-        raise ValueError(f"Groq API error: {str(e)}")
 
 
 def calculate_confidence(similar_chunks):

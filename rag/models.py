@@ -71,7 +71,7 @@ class ChatHistory(models.Model):
     class Meta:
         verbose_name = "Chat history"
         verbose_name_plural = "Chat histories"
-        ordering = ['-created_at']
+        ordering = ['created_at']
 
     def __str__(self):
         return f"Chat history for {self.document.name}"

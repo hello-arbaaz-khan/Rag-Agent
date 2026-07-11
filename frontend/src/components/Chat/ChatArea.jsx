@@ -103,6 +103,17 @@ const ChatArea = () => {
     }
   };
 
+  const handleClearChat = async () => {
+    if (!selectedDocument) return;
+    try {
+      await documentApi.clearChatHistory(selectedDocument.id);
+      dispatch({ type: "CLEAR_CHAT", documentId: selectedDocument.id });
+      addToast("Chat history cleared successfully.", "success");
+    } catch (err) {
+      addToast(err.message, "error");
+    }
+  };
+
   return (
     <main className="flex h-full min-w-0 flex-1 flex-col bg-brand-bg">
       <header className="flex flex-col gap-3 border-b border-slate-800 bg-slate-950/65 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
@@ -128,7 +139,7 @@ const ChatArea = () => {
         </div>
         <button
           type="button"
-          onClick={() => dispatch({ type: "CLEAR_CHAT", documentId: selectedDocument.id })}
+          onClick={handleClearChat}
           disabled={!messages.length}
           className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-700 px-3 py-2 text-sm font-bold text-slate-300 transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
         >

@@ -32,7 +32,7 @@ class QAService:
             }
 
         context = build_context(similar_chunks)
-        prompt = build_prompt(question, context)
+        prompt = build_prompt(question, context, history=history)
         answer = generate_answer(prompt)
         confidence = calculate_confidence(similar_chunks)
 

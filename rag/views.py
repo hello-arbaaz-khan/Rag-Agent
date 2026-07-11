@@ -1,4 +1,3 @@
-import manage
 from rag.services.document_service import DocumentService
 from rag.services.qa_service import QAService
 from rest_framework.views import APIView
@@ -81,16 +80,16 @@ class ChatHistoryView(APIView):
 
     def delete(self, request, document_id):
         try:
-            ChatHistory.objects.filter(document_id=document_id)
-        except ChatHistory.DoesNotExist:
+            UploadedDocument.objects.get(id=document_id)
+        except UploadedDocument.DoesNotExist:
             return Response(
-                {"success":False, "message":"Documet not found"},
+                {"success": False, "message": "Document not found"},
                 status=status.HTTP_404_NOT_FOUND
             )
 
         ChatHistory.objects.filter(document_id=document_id).delete()
         return Response({
-            "success":True,"message":"Chat history cleared successfully"
+            "success": True, "message": "Chat history cleared successfully"
         }, status=status.HTTP_204_NO_CONTENT)
 
 
