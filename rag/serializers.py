@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from rag.models import UploadedDocument, DocumemtsChunks
+from rag.models import UploadedDocument, DocumemtsChunks,ChatHistory
 
 class DocumentChunksSerializer(serializers.ModelSerializer):
     class Meta:
@@ -116,3 +116,9 @@ class AnswerSerializer(serializers.ModelSerializer):
     answer = serializers.CharField()
     source_chunk = DocumentChunksSerializer()
     document_name = serializers.CharField()
+
+class ChatHistorySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ChatHistory
+        fields = ['id','document', 'question', 'answer', 'created_at']
+        read_only_fields = fields

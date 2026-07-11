@@ -85,6 +85,23 @@ export const documentApi = {
     } catch (error) {
       throw new Error(getErrorMessage(error, "Answer generation failed."));
     }
+  },
+
+  async getChatHistory(documentId) {
+    try {
+      const { data } = await apiClient.get(`history/${documentId}/`);
+      return data.data ?? data;
+    } catch (error) {
+      throw new Error(getErrorMessage(error, "Unable to load chat history."));
+    }
+  },
+
+  async clearChatHistory(documentId) {
+    try {
+      await apiClient.delete(`history/${documentId}/`);
+    } catch (error) {
+      throw new Error(getErrorMessage(error, "Unable to clear chat history."));
+    }
   }
 };
 
