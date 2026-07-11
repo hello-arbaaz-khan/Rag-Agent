@@ -27,8 +27,16 @@ def extract_text_from_txt(file_path):
     TXT file se text nikalo
     Return: List of tuples [(1, text)]
     """
-    with open(file_path, 'r', encoding='utf-8') as f:
-        text = f.read()
+    text = ""
+    try:
+        try:
+            with open(file_path, 'r', encoding='utf-8') as f:
+                text = f.read()
+        except UnicodeDecodeError:
+            with open(file_path, 'r', encoding='latin-1') as f:
+                text = f.read()
+    except Exception as e:
+        print(f"Error reading TXT file {file_path}: {e}")
 
     return [(1, text)]
 
@@ -129,7 +137,7 @@ def process_document(document):
     if not pages_text:
         raise ValueError("File is empty")
 
-    chunks = create_chunks(pages_text, chunk_size=500, chunk_overlap=50)
+    chunks = create_chunks(pages_text, chunk_size=100, chunk_overlap=50)
     if not chunks:
         raise ValueError("Chunks creation failed")
 

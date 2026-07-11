@@ -1,7 +1,6 @@
 chromadb==1.5.9
 Django==6.0.6
 djangorestframework==3.17.1
-fitz==0.0.1.dev2
 groq==1.5.0
 pymupdf==1.28.0
 python-decouple==3.8
