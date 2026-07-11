@@ -12,6 +12,7 @@ def get_client():
         _client = Groq(api_key=api_key)
     return _client
 
+
 def build_context(chunks):
 
     context_parts = []
@@ -26,17 +27,42 @@ def build_context(chunks):
     return context
 
 
-def build_prompt(question, context):
-    prompt = f"""Answer based ONLY on context below. Be brief.
+def build_history_block(history):
+    """
+    Turn a list of {"question": ..., "answer": ...} dicts (oldest first)
+    into a readable conversation transcript for the prompt.
+    Returns "" if there's no prior history.
+    """
+    if not history:
+        return ""
+ 
+    turns = []
+    for turn in history:
+        turns.append(f"User: {turn['question']}\nAssistant: {turn['answer']}")
+ 
+    return "\n\n".join(turns)
 
-Context:
+
+def build_prompt(question, context, history=None):
+    history_block = build_history_block(history)
+ 
+    history_section = (
+        f"Conversation so far:\n{history_block}\n\n"
+        if history_block
+        else ""
+    )
+ 
+    prompt = f"""Answer based ONLY on the document context below. Be brief.
+Use the conversation history only to resolve references (e.g. "it", "that", "my first question") - the document context is still the source of truth for facts.
+ 
+{history_section}Context:
 {context}
-
+ 
 Question: {question}
 Answer:"""
     return prompt
-
-
+ 
+ 
 def generate_answer(prompt):
     """
     Get answer from Grow API
@@ -54,14 +80,16 @@ def generate_answer(prompt):
             temperature=0.1,
             max_tokens=500,
         )
-
+ 
         answer = response.choices[0].message.content
         return answer.strip()
-
+ 
     except ValueError as ve:
         raise ve
     except Exception as e:
         raise ValueError(f"Groq API error: {str(e)}")
+
+
 
 
 def calculate_confidence(similar_chunks):

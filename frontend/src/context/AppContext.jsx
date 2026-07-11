@@ -93,6 +93,17 @@ const reducer = (state, action) => {
         chatHistory: updated
       };
     }
+    case "SET_DOCUMENT_CHAT_HISTORY": {
+      const updated = {
+        ...state.chatHistory,
+        [action.documentId]: action.payload
+      };
+      saveChatHistoryToStorage(updated);
+      return {
+        ...state,
+        chatHistory: updated
+      };
+    }
     case "SET_CHAT_HISTORY": {
       const updated = action.payload;
       saveChatHistoryToStorage(updated);
@@ -146,6 +157,47 @@ useEffect(() => {
 
   return () => clearInterval(interval);
 }, [loadDocuments]);
+
+useEffect(() => {
+  if (!state.selectedDocumentId) return;
+
+  let isMounted = true;
+  const fetchHistory = async () => {
+    try {
+      const historyData = await documentApi.getChatHistory(state.selectedDocumentId);
+      const messages = [];
+      historyData.forEach((turn) => {
+        messages.push({
+          id: `q-${turn.id}`,
+          role: "user",
+          content: turn.question,
+          createdAt: turn.created_at
+        });
+        messages.push({
+          id: `a-${turn.id}`,
+          role: "assistant",
+          content: turn.answer,
+          createdAt: turn.created_at
+        });
+      });
+
+      if (isMounted) {
+        dispatch({
+          type: "SET_DOCUMENT_CHAT_HISTORY",
+          documentId: state.selectedDocumentId,
+          payload: messages
+        });
+      }
+    } catch (error) {
+      console.error("Failed to load chat history from backend:", error);
+    }
+  };
+
+  fetchHistory();
+  return () => {
+    isMounted = false;
+  };
+}, [state.selectedDocumentId]);
 
   const selectedDocument = useMemo(
     () => state.documents.find((doc) => doc.id === state.selectedDocumentId) || null,

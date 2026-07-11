@@ -3,8 +3,8 @@ from rag.services.qa_service import QAService
 from rest_framework.views import APIView
 from rest_framework import status
 from rest_framework.response import Response
-from rag.serializers import UploadedDocumentSerializer,QuestionSerializer
-from rag.models import UploadedDocument
+from rag.serializers import UploadedDocumentSerializer,QuestionSerializer,ChatHistorySerializer
+from rag.models import UploadedDocument,ChatHistory
 # Create your views here. 
 
 
@@ -63,6 +63,34 @@ class DocumentStatusView(APIView):
                 {"success": False, "message": "Document not found"},
                 status=status.HTTP_404_NOT_FOUND,
             )
+
+class ChatHistoryView(APIView):
+    def get(self,request,document_id):
+        try:
+            UploadedDocument.objects.get(id=document_id)
+        except UploadedDocument.DoesNotExist:
+            return Response(
+                {"success":False, "message":"Document not found"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        
+        messages = ChatHistory.objects.filter(document_id=document_id,).order_by('created_at')
+        serializer = ChatHistorySerializer(messages, many=True)
+        return Response({"success":True, "data": serializer.data}, status=status.HTTP_200_OK)
+
+    def delete(self, request, document_id):
+        try:
+            UploadedDocument.objects.get(id=document_id)
+        except UploadedDocument.DoesNotExist:
+            return Response(
+                {"success": False, "message": "Document not found"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        ChatHistory.objects.filter(document_id=document_id).delete()
+        return Response({
+            "success": True, "message": "Chat history cleared successfully"
+        }, status=status.HTTP_204_NO_CONTENT)
 
 
 class QuestionAnswer(APIView):
