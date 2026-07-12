@@ -75,3 +75,35 @@ class ChatHistory(models.Model):
 
     def __str__(self):
         return f"Chat history for {self.document.name}"
+
+
+class DriveDocument(models.Model):
+    drive_file_id = models.CharField(max_length=255, unique=True)
+    name = models.CharField(max_length=500)
+    mime_type = models.CharField(max_length=100)
+    drive_modified_at = models.DateTimeField()
+    
+    sync_status = models.CharField(
+        max_length=20,
+        choices=[
+            ('pending', 'Pending'),
+            ('indexed', 'Indexed'),
+            ('failed', 'Failed'),
+        ],
+        default='pending'
+    )
+    sync_error = models.TextField(blank=True, null=True)
+    
+    document = models.OneToOneField(
+        'UploadedDocument',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='drive_source'
+    )
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.name} ({self.sync_status})"
