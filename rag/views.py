@@ -5,7 +5,7 @@ from rest_framework import status
 from rest_framework.response import Response
 from rag.serializers import UploadedDocumentSerializer,QuestionSerializer,ChatHistorySerializer
 from rag.models import UploadedDocument,ChatHistory
-# Create your views here. 
+# Create your views here.
 
 
 class DocumentListCreateView(APIView):
@@ -73,7 +73,7 @@ class ChatHistoryView(APIView):
                 {"success":False, "message":"Document not found"},
                 status=status.HTTP_404_NOT_FOUND,
             )
-        
+
         messages = ChatHistory.objects.filter(document_id=document_id,).order_by('created_at')
         serializer = ChatHistorySerializer(messages, many=True)
         return Response({"success":True, "data": serializer.data}, status=status.HTTP_200_OK)

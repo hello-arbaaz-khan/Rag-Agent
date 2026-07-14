@@ -87,6 +87,7 @@ class DriveDocument(models.Model):
         max_length=20,
         choices=[
             ('pending', 'Pending'),
+            ('processing', 'Processing'),  # download+embed in progress
             ('indexed', 'Indexed'),
             ('failed', 'Failed'),
         ],

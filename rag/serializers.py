@@ -9,7 +9,7 @@ class DocumentChunksSerializer(serializers.ModelSerializer):
 
 class UploadedDocumentSerializer(serializers.ModelSerializer):
     chunk_count = serializers.SerializerMethodField()
-    
+
     class Meta:
         model = UploadedDocument
         fields = ['id', 'name', 'file', 'file_type', 'file_size', 'is_processed', 'processing_error', 'chunk_count', 'created_at', 'updated_at']
@@ -22,13 +22,13 @@ class UploadedDocumentSerializer(serializers.ModelSerializer):
         max_size = 50 * 1024 * 1024
         if value.size > max_size:
             raise serializers.ValidationError("File size must be less than 50MB")
-        
+
         allow_extention = ['pdf', 'docx', 'doc', 'txt']
         extention = value.name.split('.')[-1].lower()
         if extention not in allow_extention:
             raise serializers.ValidationError(f"Only {allow_extention} allowed")
         return value
-    
+
     def validate_file_type(self, value):
         allowed_types = ['pdf', 'docx', 'doc', 'txt']
         if value not in allowed_types:
@@ -39,7 +39,7 @@ class DocumentListSerializer(serializers.ModelSerializer):
     """
     This serializers is used to get list of all the documents
     """
-    
+
     file_size = serializers.ReadOnlyField()
     chunk_count = serializers.ReadOnlyField()
     class Meta:
@@ -78,7 +78,7 @@ class DocumentDetailSerializer(serializers.ModelSerializer):
             'chunks',
             'created_at',
             'updated_at'
-        ]     
+        ]
 
 
 class QuestionSerializer(serializers.ModelSerializer):
@@ -101,13 +101,13 @@ class QuestionSerializer(serializers.ModelSerializer):
         if not value.strip():
             raise serializers.ValidationError("Question can't be empty")
         return value
-    
+
     def validate_document_id(self, value):
         """Check document exists"""
         if not UploadedDocument.objects.filter(id=value).exists():
             raise serializers.ValidationError(f"Document id {value} not exist")
         return value
-    
+
 class AnswerSerializer(serializers.ModelSerializer):
     """
     Rag response serializer
@@ -116,6 +116,7 @@ class AnswerSerializer(serializers.ModelSerializer):
     answer = serializers.CharField()
     source_chunk = DocumentChunksSerializer()
     document_name = serializers.CharField()
+
 
 class ChatHistorySerializer(serializers.ModelSerializer):
     class Meta:
