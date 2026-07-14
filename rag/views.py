@@ -1,9 +1,10 @@
+from rag.services.drive_service import sync_drive_documents
 from rag.services.document_service import DocumentService
 from rag.services.qa_service import QAService
 from rest_framework.views import APIView
 from rest_framework import status
 from rest_framework.response import Response
-from rag.serializers import UploadedDocumentSerializer,QuestionSerializer,ChatHistorySerializer
+from rag.serializers import UploadedDocumentSerializer,QuestionSerializer,ChatHistorySerializer,GlobalSearchSerializer
 from rag.models import UploadedDocument,ChatHistory
 # Create your views here.
 
@@ -119,3 +120,15 @@ class QuestionAnswer(APIView):
                 {"success": False, "message": str(e)},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+
+class SyncDrive(APIView):
+    def post(self, request):
+        """
+        Sync Google Drive files with local database.
+        This will fetch files from Google Drive and store them in the local database.
+        """
+        try:
+            result = sync_drive_documents()
+            return Response({"status": "success", **result})
+        except Exception as e:
+            return Response({"status": "error", "detail": str(e)}, status=500)
