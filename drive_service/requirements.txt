@@ -1,0 +1,6 @@
+fastapi
+uvicorn[standard]
+pydantic-settings
+google-auth
+google-auth-oauthlib
+google-api-python-client

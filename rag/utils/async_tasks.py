@@ -5,28 +5,35 @@ from django.utils import timezone
 from datetime import timedelta
 from django.db.models import Q
 
+# Cap concurrent document processing to avoid overwhelming SQLite and the embedding model.
+# With the embedding lock already serializing .encode() calls, having >3 threads
+# provides no speedup and just wastes OS thread handles and memory.
+# Tune this value up if you move to PostgreSQL and a GPU-accelerated embedding model.
+_PROCESSING_SEMAPHORE = threading.Semaphore(3)
+
 
 def process_document_async(document_id):
     """Process document in background thread to avoid blocking HTTP response."""
     def _process():
         import django.db
         django.db.close_old_connections()
-        try:
-            document = UploadedDocument.objects.get(id=document_id)
-            document.processing_started_at = timezone.now()
-            document.save()
-            process_document(document)
-        except Exception as e:
-            print(f"Error processing document {document_id}: {str(e)}")
+        with _PROCESSING_SEMAPHORE:  # cap concurrent processing threads
             try:
                 document = UploadedDocument.objects.get(id=document_id)
-                document.processing_error = str(e)
+                document.processing_started_at = timezone.now()
                 document.save()
-            except:
-                pass
-        finally:
-            django.db.close_old_connections()
-    
+                process_document(document)
+            except Exception as e:
+                print(f"Error processing document {document_id}: {repr(e)}", flush=True)
+                try:
+                    document = UploadedDocument.objects.get(id=document_id)
+                    document.processing_error = repr(e)
+                    document.save()
+                except Exception:
+                    pass
+            finally:
+                django.db.close_old_connections()
+
     thread = threading.Thread(target=_process, daemon=True)
     thread.start()
 
