@@ -1,5 +1,5 @@
 from django.urls import path
-from rag.views import DocumentListCreateView,DocumentStatusView,QuestionAnswer,DocumentDetailView,ChatHistoryView,SyncDrive
+from rag.views import DocumentListCreateView,DocumentStatusView,QuestionAnswer,DocumentDetailView,ChatHistoryView,SyncDrive,SearchView
 
 urlpatterns = [
     path('upload/', DocumentListCreateView.as_view(), name='upload'),
@@ -9,4 +9,5 @@ urlpatterns = [
     path('question/', QuestionAnswer.as_view(), name='question'),
     path('history/<int:document_id>/', ChatHistoryView.as_view(), name='history'),
     path('sync-drive/', SyncDrive.as_view(), name='sync-drive'),
+    path('search/', SearchView.as_view(), name='search'),
 ]

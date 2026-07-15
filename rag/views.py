@@ -1,10 +1,11 @@
+from rag.services.search_service import SearchService
 from rag.services.drive_service import sync_drive_documents
 from rag.services.document_service import DocumentService
 from rag.services.qa_service import QAService
 from rest_framework.views import APIView
 from rest_framework import status
 from rest_framework.response import Response
-from rag.serializers import UploadedDocumentSerializer,QuestionSerializer,ChatHistorySerializer,GlobalSearchSerializer
+from rag.serializers import UploadedDocumentSerializer,QuestionSerializer,ChatHistorySerializer,SearchQuerySerializer
 from rag.models import UploadedDocument,ChatHistory
 # Create your views here.
 
@@ -132,3 +133,17 @@ class SyncDrive(APIView):
             return Response({"status": "success", **result})
         except Exception as e:
             return Response({"status": "error", "detail": str(e)}, status=500)
+
+
+class SearchView(APIView):
+    def get(self, request):
+        serializer = SearchQuerySerializer(data=request.query_params)
+        serializer.is_valid(raise_exception=True)
+        query = serializer.validated_data["query"].strip()
+
+        if not query:
+            result = SearchService.browse()
+        else:
+            result = SearchService.search(query)
+
+        return Response(result, status=status.HTTP_200_OK)

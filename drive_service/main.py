@@ -7,11 +7,11 @@ app = FastAPI(title="Drive Service",version="1.0")
 
 
 @app.get("/files", response_model=DriveFileListResponse)
-def get_files():
+def get_files(page_size: int = 50, page_token: str | None = None):
     """
     list files from google drive
     """
-    raw_files = list_files()
+    result = list_files(page_size=page_size, page_token=page_token)
 
     files = [
         DriveFile(
@@ -20,10 +20,14 @@ def get_files():
             mime_type=f["mimeType"],
             modified_time=f["modifiedTime"],
         )
-        for f in raw_files
+        for f in result["files"]
     ]
 
-    return DriveFileListResponse(files=files, count=len(files))
+    return DriveFileListResponse(
+        files=files,
+        count=len(files),
+        next_page_token=result["next_page_token"],
+    )
 
 
 @app.get("/files/{file_id}/download", response_model=DriveFileDownloadResponse)
