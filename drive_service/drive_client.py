@@ -58,10 +58,17 @@ def get_drive_service():
     creds = get_credentials()
     return build('drive','v3',credentials=creds)
 
-def list_files(pageSize: int=100):
+def list_files(page_size: int = 50, page_token: str = None):
     service = get_drive_service()
-    result = service.files().list(pageSize=pageSize,fields='files(id,name,mimeType,modifiedTime)').execute()
-    return result.get('files',[])
+    result = service.files().list(
+        pageSize=page_size,
+        pageToken=page_token,
+        fields='nextPageToken, files(id,name,mimeType,modifiedTime)'
+    ).execute()
+    return {
+        'files': result.get('files', []),
+        'next_page_token': result.get('nextPageToken'),
+    }
 
 
 def download_file(file_id:str) -> bytes:
