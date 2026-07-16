@@ -1,8 +1,13 @@
-import { BrainCircuit, FileWarning } from "lucide-react";
+import { BrainCircuit, FileWarning, MessageSquare, Search } from "lucide-react";
 import { documentApi } from "../../services/api";
 import { useAppContext } from "../../context/AppContext";
 import DocumentItem from "./DocumentItem";
 import UploadButton from "./UploadButton";
+
+const NAV_ITEMS = [
+  { id: "chat", label: "Chat", icon: MessageSquare },
+  { id: "search", label: "Advanced Search", icon: Search }
+];
 
 const SidebarSkeleton = () => (
   <div className="space-y-3">
@@ -12,7 +17,7 @@ const SidebarSkeleton = () => (
   </div>
 );
 
-const Sidebar = ({ onUploadClick }) => {
+const Sidebar = ({ onUploadClick, activeView = "chat", onNavigate = () => {} }) => {
   const {
     documents,
     selectedDocumentId,
@@ -45,6 +50,28 @@ const Sidebar = ({ onUploadClick }) => {
       </div>
 
       <UploadButton onClick={onUploadClick} />
+
+      <nav className="mt-4 flex gap-2">
+        {NAV_ITEMS.map((item) => {
+          const Icon = item.icon;
+          const isActive = activeView === item.id;
+          return (
+            <button
+              key={item.id}
+              type="button"
+              onClick={() => onNavigate(item.id)}
+              className={`flex flex-1 items-center justify-center gap-2 rounded-xl border px-3 py-2.5 text-sm font-semibold transition ${
+                isActive
+                  ? "border-blue-500/70 bg-blue-950/50 text-white"
+                  : "border-slate-700/70 bg-slate-900/45 text-slate-300 hover:border-slate-500 hover:bg-slate-800/70"
+              }`}
+            >
+              <Icon className="h-4 w-4" />
+              {item.label}
+            </button>
+          );
+        })}
+      </nav>
 
       <div className="mt-6 flex items-center justify-between">
         <h2 className="text-sm font-bold uppercase tracking-wide text-slate-300">Documents</h2>
