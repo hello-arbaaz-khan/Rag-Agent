@@ -1,4 +1,5 @@
 from django.core.files.base import ContentFile
+from django.utils.dateparse import parse_datetime
 from rag.services.document_service import DocumentService
 import base64
 from rag.models import DriveDocument
@@ -95,13 +96,12 @@ def sync_drive_documents():
             created_count += 1
         else:
             updated_count += 1
-            # Re-queue if the file was modified in Drive since last sync
-            if str(obj.drive_modified_at) != str(f['modified_time']) and obj.sync_status == "indexed":
-                obj.drive_modified_at = f['modified_time']
+            new_modified = parse_datetime(f['modified_time'])
+            if new_modified and new_modified != obj.drive_modified_at and obj.sync_status == "indexed":
+                obj.drive_modified_at = new_modified
                 obj.sync_status = "pending"
                 obj.save()
 
-        # Only queue docs that are pending (not currently processing/already indexed)
         if obj.sync_status == "pending":
             pending_ids.append(obj.id)
 

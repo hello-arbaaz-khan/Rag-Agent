@@ -102,6 +102,26 @@ export const documentApi = {
     } catch (error) {
       throw new Error(getErrorMessage(error, "Unable to clear chat history."));
     }
+  },
+
+  async search(query) {
+    try {
+      const { data } = await apiClient.get("search/", {
+        params: { query }
+      });
+      return data;
+    } catch (error) {
+      throw new Error(getErrorMessage(error, "Search failed."));
+    }
+  },
+
+  async syncDrive() {
+    try {
+      const { data } = await apiClient.post("sync-drive/");
+      return data;
+    } catch (error) {
+      throw new Error(getErrorMessage(error, "Drive sync failed."));
+    }
   }
 };
 
