@@ -5,10 +5,6 @@ from django.utils import timezone
 from datetime import timedelta
 from django.db.models import Q
 
-# Cap concurrent document processing to avoid overwhelming SQLite and the embedding model.
-# With the embedding lock already serializing .encode() calls, having >3 threads
-# provides no speedup and just wastes OS thread handles and memory.
-# Tune this value up if you move to PostgreSQL and a GPU-accelerated embedding model.
 _PROCESSING_SEMAPHORE = threading.Semaphore(3)
 
 
