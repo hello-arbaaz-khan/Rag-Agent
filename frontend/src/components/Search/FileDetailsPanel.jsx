@@ -104,6 +104,10 @@ const FileDetailsPanel = ({ result, onOpenInChat }) => {
             value={<span className="capitalize">{result.sync_status || "—"}</span>}
           />
           <DetailRow label="Document ID" value={result.document_id ?? "—"} />
+          <DetailRow
+            label="Chunks"
+            value={typeof result.total_chunks === "number" ? result.total_chunks : "—"}
+          />
           {typeof result.relevance_score === "number" ? (
             <DetailRow label="Relevance Score" value={result.relevance_score.toFixed(4)} />
           ) : null}

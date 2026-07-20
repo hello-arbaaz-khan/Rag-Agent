@@ -92,7 +92,8 @@ const AdvancedSearch = ({ onOpenInChat }) => {
       mime_type: r.mime_type,
       drive_modified_at: r.drive_modified_at,
       sync_status: r.sync_status,
-      document_id: r.document_id
+      document_id: r.document_id,
+      total_chunks: r.total_chunks
     }));
     const blob = new Blob([JSON.stringify(rows, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);

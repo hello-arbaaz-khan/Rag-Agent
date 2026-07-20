@@ -1,5 +1,6 @@
 import re
 
+from django.db.models import Count
 from rag.models import DriveDocument
 from rag.utils.vector_store import search_all_documents
 
@@ -37,6 +38,10 @@ def score_filename_match(file_name, query):
 
 
 def _serialize_drive_doc(doc):
+    total_chunks = getattr(doc, "total_chunks", None)
+    if total_chunks is None and doc.document:
+        total_chunks = doc.document.chunk_count
+
     return {
         "drive_file_id": doc.drive_file_id,
         "name": doc.name,
@@ -44,6 +49,7 @@ def _serialize_drive_doc(doc):
         "drive_modified_at": doc.drive_modified_at,
         "sync_status": doc.sync_status,
         "document_id": doc.document_id,
+        "total_chunks": total_chunks,
     }
 
 
@@ -52,7 +58,17 @@ class SearchService:
     @staticmethod
     def browse():
         """No query — return ALL local Drive files, sorted by sync_status."""
-        all_docs = list(DriveDocument.objects.all())
+        all_docs = list(
+            DriveDocument.objects.select_related("document")
+            .annotate(annotated_chunks=Count("document__chunks"))
+            .all()
+        )
+        for doc in all_docs:
+            if doc.document_id is None:
+                doc.total_chunks = None
+            else:
+                doc.total_chunks = doc.annotated_chunks
+
         all_docs.sort(key=lambda d: (SYNC_STATUS_ORDER.get(d.sync_status, 9), d.name.lower()))
 
         return {
@@ -68,10 +84,19 @@ class SearchService:
         content_scores = {m["document_id"]: m["relevance_score"] for m in content_matches}
         content_snippets = {m["document_id"]: m["matched_chunk_text"] for m in content_matches}
 
-        all_docs = list(DriveDocument.objects.all())
+        all_docs = list(
+            DriveDocument.objects.select_related("document")
+            .annotate(annotated_chunks=Count("document__chunks"))
+            .all()
+        )
         scored = []
 
         for doc in all_docs:
+            if doc.document_id is None:
+                doc.total_chunks = None
+            else:
+                doc.total_chunks = doc.annotated_chunks
+
             name_score = score_filename_match(doc.name, query)
             content_score = content_scores.get(doc.document_id, 0.0) if doc.document_id else 0.0
 
