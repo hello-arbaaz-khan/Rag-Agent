@@ -7,7 +7,6 @@ import {
   FileText,
   Filter as FilterIcon,
   MoreVertical,
-  RefreshCw,
   RotateCcw,
   Search,
   X
@@ -25,7 +24,6 @@ const AdvancedSearch = ({ onOpenInChat }) => {
   const [query, setQuery] = useState("");
   const [allResults, setAllResults] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [syncing, setSyncing] = useState(false);
 
   const [docType, setDocType] = useState("all");
   const [syncStatus, setSyncStatus] = useState("all");
@@ -69,21 +67,7 @@ const AdvancedSearch = ({ onOpenInChat }) => {
     runSearch("");
   };
 
-  const handleSyncDrive = async () => {
-    setSyncing(true);
-    try {
-      const data = await documentApi.syncDrive();
-      addToast(
-        `Synced: ${data.total_files} files found, ${data.created} new, ${data.queued_for_processing} queued for processing.`,
-        "success"
-      );
-      await runSearch(query.trim());
-    } catch (error) {
-      addToast(error.message, "error");
-    } finally {
-      setSyncing(false);
-    }
-  };
+
 
   const handleExport = () => {
     const rows = filteredResults.map((r) => ({
@@ -151,15 +135,6 @@ const AdvancedSearch = ({ onOpenInChat }) => {
           <h1 className="text-2xl font-extrabold text-white">Advanced Search</h1>
           <p className="mt-1 text-sm text-slate-400">Search across all your documents with AI-powered intelligence</p>
         </div>
-        <button
-          type="button"
-          onClick={handleSyncDrive}
-          disabled={syncing}
-          className="inline-flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-900/60 px-4 py-2.5 text-sm font-bold text-slate-200 transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          <RefreshCw className={`h-4 w-4 ${syncing ? "animate-spin" : ""}`} />
-          {syncing ? "Syncing..." : "Sync Drive"}
-        </button>
       </div>
 
       <form onSubmit={handleSubmit} className="mb-4 flex items-center gap-3">
