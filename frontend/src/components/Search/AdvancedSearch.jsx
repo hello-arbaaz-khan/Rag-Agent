@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ChevronLeft,
   ChevronRight,
+  Clock,
   Download,
   ExternalLink,
   FileText,
@@ -15,6 +16,12 @@ import { documentApi } from "../../services/api";
 import { useAppContext } from "../../context/AppContext";
 import FileDetailsPanel from "./FileDetailsPanel";
 import { mimeToLabel, syncStatusStyles } from "./searchUtils";
+import {
+  addSearchHistory,
+  clearSearchHistory,
+  getSearchHistory,
+  removeSearchHistory
+} from "./Searchhistory.js";
 
 const PAGE_SIZE_OPTIONS = [10, 20, 50];
 
@@ -34,6 +41,30 @@ const AdvancedSearch = ({ onOpenInChat }) => {
   const [pageSize, setPageSize] = useState(20);
   const [openMenuId, setOpenMenuId] = useState(null);
   const [detailsResult, setDetailsResult] = useState(null);
+
+  const [recentSearches, setRecentSearches] = useState([]);
+  const [showHistory, setShowHistory] = useState(false);
+  const searchBarRef = useRef(null);
+
+  useEffect(() => {
+    setRecentSearches(getSearchHistory());
+  }, []);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (searchBarRef.current && !searchBarRef.current.contains(event.target)) {
+        setShowHistory(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const visibleHistory = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return recentSearches;
+    return recentSearches.filter((item) => item.toLowerCase().includes(q));
+  }, [recentSearches, query]);
 
   const runSearch = async (searchQuery) => {
     setLoading(true);
@@ -55,7 +86,10 @@ const AdvancedSearch = ({ onOpenInChat }) => {
 
   const handleSubmit = (event) => {
     event.preventDefault();
-    runSearch(query.trim());
+    const trimmed = query.trim();
+    if (trimmed) setRecentSearches(addSearchHistory(trimmed));
+    setShowHistory(false);
+    runSearch(trimmed);
   };
 
   const handleReset = () => {
@@ -65,6 +99,23 @@ const AdvancedSearch = ({ onOpenInChat }) => {
     setFromDate("");
     setToDate("");
     runSearch("");
+  };
+
+  const handleSelectHistory = (term) => {
+    setQuery(term);
+    setRecentSearches(addSearchHistory(term));
+    setShowHistory(false);
+    runSearch(term);
+  };
+
+
+  const handleRemoveHistoryItem = (term, event) => {
+    event.stopPropagation();
+    setRecentSearches(removeSearchHistory(term));
+  };
+
+  const handleClearHistory = () => {
+    setRecentSearches(clearSearchHistory());
   };
 
 
@@ -138,15 +189,56 @@ const AdvancedSearch = ({ onOpenInChat }) => {
       </div>
 
       <form onSubmit={handleSubmit} className="mb-4 flex items-center gap-3">
-        <div className="flex flex-1 items-center gap-2 rounded-xl border border-slate-700 bg-slate-900/60 px-4 py-3">
-          <Search className="h-4 w-4 shrink-0 text-slate-400" />
-          <input
-            type="text"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search by file name, content, keyword, or ask a question..."
-            className="w-full bg-transparent text-sm text-white placeholder:text-slate-500 focus:outline-none"
-          />
+        <div ref={searchBarRef} className="relative flex-1">
+          <div className="flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-900/60 px-4 py-3">
+            <Search className="h-4 w-4 shrink-0 text-slate-400" />
+            <input
+              type="text"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              onFocus={() => setShowHistory(true)}
+              placeholder="Search by file name, content, keyword, or ask a question..."
+              className="w-full bg-transparent text-sm text-white placeholder:text-slate-500 focus:outline-none"
+            />
+          </div>
+
+          {showHistory && visibleHistory.length > 0 ? (
+            <div className="absolute left-0 right-0 top-full z-30 mt-2 overflow-hidden rounded-xl border border-slate-700 bg-slate-900 shadow-xl">
+              <div className="flex items-center justify-between border-b border-slate-800 px-4 py-2">
+                <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Recent searches
+                </span>
+                <button
+                  type="button"
+                  onClick={handleClearHistory}
+                  className="text-xs font-medium text-slate-400 hover:text-white"
+                >
+                  Clear all
+                </button>
+              </div>
+              <ul className="max-h-64 overflow-y-auto">
+                {visibleHistory.map((term) => (
+                  <li key={term} className="flex items-center justify-between gap-1 px-2 py-1">
+                    <button
+                      type="button"
+                      onClick={() => handleSelectHistory(term)}
+                      className="flex flex-1 items-center gap-2 truncate rounded-lg px-2 py-1.5 text-left text-sm text-slate-200 hover:bg-slate-800"
+                    >
+                      <Clock className="h-3.5 w-3.5 shrink-0 text-slate-500" />
+                      <span className="truncate">{term}</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => handleRemoveHistoryItem(term, e)}
+                      className="shrink-0 rounded p-1 text-slate-500 hover:bg-slate-700 hover:text-white"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
         </div>
         <button
           type="submit"
