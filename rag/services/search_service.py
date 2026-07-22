@@ -1,11 +1,45 @@
 import re
+from datetime import datetime
 
 from django.db.models import Count
+from django.utils import timezone
 from rag.models import DriveDocument
 from rag.utils.vector_store import search_all_documents
+from rag.utils.query_intent import parse_query_intent
 
 
 SYNC_STATUS_ORDER = {"indexed": 0, "processing": 1, "pending": 2, "failed": 3}
+
+MIN_RELEVANCE = 0.35
+
+
+def _parse_iso_date(value):
+    if not value:
+        return None
+    try:
+        return datetime.strptime(value, "%Y-%m-%d").date()
+    except (ValueError, TypeError):
+        return None
+
+
+def _matches_date_filter(modified_at, date_filter):
+    if not date_filter or not date_filter.get("type"):
+        return True
+    if modified_at is None:
+        return False
+    doc_date = timezone.localtime(modified_at).date() if timezone.is_aware(modified_at) else modified_at.date()
+    filter_type = date_filter["type"]
+    start = _parse_iso_date(date_filter.get("date"))
+    end = _parse_iso_date(date_filter.get("date_end"))
+    if filter_type == "on":
+        return start is not None and doc_date == start
+    if filter_type == "after":
+        return start is not None and doc_date > start
+    if filter_type == "before":
+        return start is not None and doc_date < start
+    if filter_type == "between":
+        return start is not None and end is not None and start <= doc_date <= end
+    return True
 
 
 def _tokenize(text):
@@ -54,7 +88,6 @@ def _serialize_drive_doc(doc):
 
 
 class SearchService:
-
     @staticmethod
     def browse():
         """No query — return ALL local Drive files, sorted by sync_status."""
@@ -78,39 +111,58 @@ class SearchService:
 
     @staticmethod
     def search(query):
-        """Query given — rank ALL local files by combined content + filename relevance."""
-        # Layer 1: content matches (only for indexed files) — document_id -> score
-        content_matches = search_all_documents(query, top_k=1000)
-        content_scores = {m["document_id"]: m["relevance_score"] for m in content_matches}
-        content_snippets = {m["document_id"]: m["matched_chunk_text"] for m in content_matches}
+        intent = parse_query_intent(query)
+        topic = intent["topic"]
+        date_filter = intent["date_filter"]
 
         all_docs = list(
             DriveDocument.objects.select_related("document")
             .annotate(annotated_chunks=Count("document__chunks"))
             .all()
         )
+
+        if date_filter.get("type"):
+            all_docs = [d for d in all_docs if _matches_date_filter(d.drive_modified_at, date_filter)]
+
         scored = []
 
-        for doc in all_docs:
-            if doc.document_id is None:
-                doc.total_chunks = None
-            else:
-                doc.total_chunks = doc.annotated_chunks
+        if topic:
+            content_matches = search_all_documents(topic, top_k=1000)
+            content_scores = {m["document_id"]: m["relevance_score"] for m in content_matches}
+            content_snippets = {m["document_id"]: m["matched_chunk_text"] for m in content_matches}
 
-            name_score = score_filename_match(doc.name, query)
-            content_score = content_scores.get(doc.document_id, 0.0) if doc.document_id else 0.0
+            for doc in all_docs:
+                if doc.document_id is None:
+                    doc.total_chunks = None
+                else:
+                    doc.total_chunks = doc.annotated_chunks
 
-            final_score = max(name_score, content_score)
-            if final_score <= 0:
-                continue  # not relevant at all — leave it out of ranked results
+                name_score = score_filename_match(doc.name, topic)
+                content_score = content_scores.get(doc.document_id, 0.0) if doc.document_id else 0.0
 
-            entry = _serialize_drive_doc(doc)
-            entry["relevance_score"] = round(final_score, 4)
-            entry["matched_snippet"] = content_snippets.get(doc.document_id)
-            scored.append(entry)
+                final_score = max(name_score, content_score)
+                if final_score < MIN_RELEVANCE:
+                    continue
 
-        scored.sort(key=lambda item: item["relevance_score"], reverse=True)
-        return {
+                entry = _serialize_drive_doc(doc)
+                entry["relevance_score"] = round(final_score, 4)
+                entry["matched_snippet"] = content_snippets.get(doc.document_id)
+                scored.append(entry)
+
+            scored.sort(key=lambda item: item["relevance_score"], reverse=True)
+        else:
+            for doc in all_docs:
+                doc.total_chunks = doc.annotated_chunks if doc.document_id else None
+                entry = _serialize_drive_doc(doc)
+                entry["relevance_score"] = 1.0
+                entry["matched_snippet"] = None
+                scored.append(entry)
+            scored.sort(key=lambda item: item["name"].lower())
+
+        result = {
             "results": scored,
             "total": len(scored),
         }
+        if not scored:
+            result["message"] = "No matching file found."
+        return result
