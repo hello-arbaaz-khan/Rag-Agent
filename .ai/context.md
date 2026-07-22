@@ -111,8 +111,8 @@ Documind is a Retrieval-Augmented Generation (RAG) platform that allows users to
 
 ## Recent Changes / Current Work
 
-- **Last Changed**: Replaced threading-based background processing with Celery + Redis task queue for reliable asynchronous document extraction and embedding generation (`PR #13`, commit `64d258f`).
-- **Current Work / Known Issues**: Document chunk visibility in search results UI (`feature/modify-advance-search` merged).
+- **Last Changed** (commit `ee0d302`, branch `fix/auto-sync-drive`): Replaced the manual "Sync Drive" button in `AdvancedSearch.jsx` with an automatic background sync. Extracted sync logic into a new `useDriveAutoSync` hook (`frontend/src/hooks/useDriveAutoSync.js`) that fires `/api/sync-drive/` immediately on mount and then every 60 seconds. The hook is mounted once at the `App` root (`App.jsx`) and uses a `syncingRef` flag to prevent overlapping calls. Removed `handleSyncDrive`, `syncing` state, and `RefreshCw` icon import from `AdvancedSearch.jsx`.
+- **Previous Change** (commit `64d258f`): Replaced threading-based background processing with Celery + Redis task queue for reliable asynchronous document extraction and embedding generation (`PR #13`).
 - Added API Reference Map and Full Codebase Map sections to context.md for faster agent lookup — reduces need for full-repo search on future changes.
 
 ---
@@ -340,9 +340,9 @@ Defined in `drive_service/main.py`.
 - **Depends on**: `frontend/src/App.jsx`, `frontend/src/context/AppContext.jsx`, `frontend/src/styles.css`
 
 #### frontend/src/App.jsx
-- **Purpose**: Root layout -- manages view state (`chat` vs `search`), renders `Sidebar`, `ChatArea` / `AdvancedSearch`, `UploadModal`, and `Toast`; initiates status polling
+- **Purpose**: Root layout -- manages view state (`chat` vs `search`), renders `Sidebar`, `ChatArea` / `AdvancedSearch`, `UploadModal`, and `Toast`; initiates status polling and automatic Drive sync
 - **Key components**: `App`
-- **Depends on**: `AppContext.jsx`, `usePolling.js`, all top-level UI components
+- **Depends on**: `AppContext.jsx`, `usePolling.js`, `useDriveAutoSync.js`, all top-level UI components
 
 #### frontend/src/styles.css
 - **Purpose**: Global CSS -- Tailwind directives, scrollbar theming, `animate-fade-in` keyframe
@@ -356,6 +356,11 @@ Defined in `drive_service/main.py`.
 #### frontend/src/hooks/usePolling.js
 - **Purpose**: Polls `/api/status/<id>/` every 5 seconds for each document with `is_processed=false`; dispatches `UPSERT_DOCUMENT` and fires a toast on completion
 - **Key exports**: `usePolling`
+- **Depends on**: `AppContext.jsx`, `frontend/src/services/api.js`
+
+#### frontend/src/hooks/useDriveAutoSync.js
+- **Purpose**: Automatically calls `/api/sync-drive/` once on mount and then every 60 seconds for the lifetime of the app; uses a `syncingRef` guard to prevent overlapping in-flight requests; shows an error toast on failure. Replaces the old manual "Sync Drive" button that previously lived in `AdvancedSearch.jsx`.
+- **Key exports**: `useDriveAutoSync`
 - **Depends on**: `AppContext.jsx`, `frontend/src/services/api.js`
 
 #### frontend/src/services/api.js
@@ -425,7 +430,7 @@ Defined in `drive_service/main.py`.
 ### `frontend/src/components/Search/`
 
 #### frontend/src/components/Search/AdvancedSearch.jsx
-- **Purpose**: Full advanced search page -- search bar, Drive sync button, type/status/date filters, paginated results grid, side panel for file details, "Open in Chat" action
+- **Purpose**: Full advanced search page -- search bar, type/status/date filters, paginated results grid, side panel for file details, "Open in Chat" action. The manual Drive sync button was removed; syncing is now fully automatic via `useDriveAutoSync` mounted at the `App` root.
 - **Key components**: `AdvancedSearch`
 - **Depends on**: `AppContext.jsx`, `api.js`, `FileDetailsPanel.jsx`, `SearchResultCard.jsx`, `searchUtils.js`
 
