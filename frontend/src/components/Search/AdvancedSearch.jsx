@@ -108,6 +108,7 @@ const AdvancedSearch = ({ onOpenInChat }) => {
     runSearch(term);
   };
 
+
   const handleRemoveHistoryItem = (term, event) => {
     event.stopPropagation();
     setRecentSearches(removeSearchHistory(term));
