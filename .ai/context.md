@@ -111,8 +111,11 @@ Documind is a Retrieval-Augmented Generation (RAG) platform that allows users to
 
 ## Recent Changes / Current Work
 
-- **Last Changed** (commit `ee0d302`, branch `fix/auto-sync-drive`): Replaced the manual "Sync Drive" button in `AdvancedSearch.jsx` with an automatic background sync. Extracted sync logic into a new `useDriveAutoSync` hook (`frontend/src/hooks/useDriveAutoSync.js`) that fires `/api/sync-drive/` immediately on mount and then every 60 seconds. The hook is mounted once at the `App` root (`App.jsx`) and uses a `syncingRef` flag to prevent overlapping calls. Removed `handleSyncDrive`, `syncing` state, and `RefreshCw` icon import from `AdvancedSearch.jsx`.
-- **Previous Change** (commit `64d258f`): Replaced threading-based background processing with Celery + Redis task queue for reliable asynchronous document extraction and embedding generation (`PR #13`).
+- **Last Changed** (commit `677d9e4`, branch `upgrade/advance-search`):
+  - **AI Query Intent Parsing**: Added `rag/utils/query_intent.py` (`parse_query_intent`) using Groq LLM (`llama-3.1-8b-instant`) to extract structured `topic` and `date_filter` (type: `on`/`before`/`after`/`between`, ISO dates) from natural language search queries.
+  - **Advanced Search Upgrade**: Updated `SearchService.search()` in `rag/services/search_service.py` to filter results by `date_filter` against `drive_modified_at`, apply a relevance cutoff threshold (`MIN_RELEVANCE = 0.35`), and return a custom message when no matching files are found.
+  - **Search History Feature**: Added client-side localStorage persistence for recent search queries (`frontend/src/components/Search/Searchhistory.js`), rendering searchable chips and recent history dropdown actions in `AdvancedSearch.jsx`.
+- **Previous Change** (commit `ee0d302`, branch `fix/auto-sync-drive`): Replaced the manual "Sync Drive" button in `AdvancedSearch.jsx` with an automatic background sync. Extracted sync logic into a new `useDriveAutoSync` hook (`frontend/src/hooks/useDriveAutoSync.js`) that fires `/api/sync-drive/` immediately on mount and then every 60 seconds.
 - Added API Reference Map and Full Codebase Map sections to context.md for faster agent lookup — reduces need for full-repo search on future changes.
 
 ---
@@ -276,6 +279,11 @@ Defined in `drive_service/main.py`.
 - **Purpose**: LLM interaction layer -- lazy Groq client init, prompt construction with conversation history, API call, confidence scoring
 - **Key functions**: `get_client` (L5), `build_context` (L16), `build_history_block` (L30), `build_prompt` (L46), `generate_answer` (L66), `calculate_confidence` (L95)
 - **Depends on**: `groq` library (lazy import), `python-decouple` for `GROQ_API_KEY`
+
+#### rag/utils/query_intent.py
+- **Purpose**: Query intent parsing via LLM -- extracts structured topic and date_filter (`on`/`before`/`after`/`between`, ISO dates) from natural language search queries
+- **Key functions**: `parse_query_intent` (L56), `_strip_code_fences` (L50)
+- **Depends on**: `rag/utils/rag_engine.py` (`get_client`)
 
 ---
 
@@ -443,6 +451,11 @@ Defined in `drive_service/main.py`.
 - **Purpose**: Side panel showing selected search result details -- Drive file ID, MIME type, sync status, chunk count, matched snippet, copy-to-clipboard, and "Open in Chat" button
 - **Key components**: `FileDetailsPanel`, `DetailRow` (L5)
 - **Depends on**: `searchUtils.js`
+
+#### frontend/src/components/Search/Searchhistory.js
+- **Purpose**: LocalStorage search history persistence helper -- manages recent search query history array
+- **Key exports**: `getSearchHistory` (L5), `saveSearchHistory` (L15), `removeSearchHistory` (L27), `clearSearchHistory` (L38)
+- **Depends on**: nothing project-internal
 
 #### frontend/src/components/Search/searchUtils.js
 - **Purpose**: Pure utility functions and style constants for the search UI
