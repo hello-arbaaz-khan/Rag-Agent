@@ -11,7 +11,9 @@ class DriveFile(BaseModel):
 class DriveFileListResponse(BaseModel):
     files:list[DriveFile]
     count:int
+    next_page_token: str | None = None
 
+    
 class DriveFileDownloadResponse(BaseModel):
     id:str
     name:str

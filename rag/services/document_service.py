@@ -1,6 +1,6 @@
 from rag.models import UploadedDocument
 from rag.utils.vector_store import delete_document_collection, delete_global_document_chunks
-from rag.utils.async_tasks import process_document_async
+from rag.tasks import process_document_task
 
 
 class DocumentService:
@@ -16,7 +16,7 @@ class DocumentService:
         )
 
         # Process document in background thread (non-blocking)
-        process_document_async(document.id)
+        process_document_task.delay(document.id)
 
         return document
 

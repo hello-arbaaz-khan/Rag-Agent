@@ -123,3 +123,6 @@ class ChatHistorySerializer(serializers.ModelSerializer):
         model = ChatHistory
         fields = ['id','document', 'question', 'answer', 'created_at']
         read_only_fields = fields
+
+class SearchQuerySerializer(serializers.Serializer):
+    query = serializers.CharField(required=False, allow_blank=True, default="")

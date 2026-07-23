@@ -8,7 +8,7 @@ from rag.utils.vector_store import store_document_chunks
 
 def extract_text_from_pdf(file_path):
     """This function is used to extract text from pdf file."""
-
+ 
     page_text = []
     pfd_document = fitz.open(file_path)
 
@@ -27,16 +27,8 @@ def extract_text_from_txt(file_path):
     TXT file se text nikalo
     Return: List of tuples [(1, text)]
     """
-    text = ""
-    try:
-        try:
-            with open(file_path, 'r', encoding='utf-8') as f:
-                text = f.read()
-        except UnicodeDecodeError:
-            with open(file_path, 'r', encoding='latin-1') as f:
-                text = f.read()
-    except Exception as e:
-        print(f"Error reading TXT file {file_path}: {e}")
+    with open(file_path, 'r', encoding='utf-8') as f:
+        text = f.read()
 
     return [(1, text)]
 

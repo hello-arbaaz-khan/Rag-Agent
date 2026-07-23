@@ -5,14 +5,12 @@ import Sidebar from "./components/Sidebar/Sidebar";
 import UploadModal from "./components/Upload/UploadModal";
 import AdvancedSearch from "./components/Search/AdvancedSearch";
 import { usePolling } from "./hooks/usePolling";
-import { useDriveAutoSync } from "./hooks/useDriveAutoSync";
 import { useAppContext } from "./context/AppContext";
 
 const App = () => {
   const [uploadOpen, setUploadOpen] = useState(false);
   const [view, setView] = useState("chat");
   const { dispatch } = useAppContext();
-  useDriveAutoSync();
   usePolling();
 
   const handleOpenInChat = (result) => {
