@@ -1,3 +1,49 @@
-# Documentation files are source files and should not be ignored
-# No build artifacts, dependencies, or temp files detected in changes
-# Following rule 6: output empty since only source/config files present
+# Environment & Secret files
+.env
+.env.*
+!.env.example
+credentials.json
+token.json
+client_secret*.json
+*.pem
+*.key
+
+# Python cache & bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Virtual Environments
+venv/
+.venv/
+env/
+ENV/
+
+# Databases & Vector DB
+*.sqlite3
+*.db
+chroma_db/
+
+# Frontend / Node dependencies & build output
+node_modules/
+frontend/node_modules/
+dist/
+frontend/dist/
+build/
+.npm/
+
+# IDE & Editor settings
+.vscode/
+.idea/
+*.swp
+*.swo
+*.sublime-workspace
+
+# OS & Log files
+*.log
+.DS_Store
+Thumbs.db
