@@ -42,6 +42,8 @@ build/
 *.swp
 *.swo
 *.sublime-workspace
+pyrightconfig.json
+pyrefly.toml
 
 # OS & Log files
 *.log
