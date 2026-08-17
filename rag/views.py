@@ -7,10 +7,12 @@ from rest_framework import status
 from rest_framework.response import Response
 from rag.serializers import UploadedDocumentSerializer,QuestionSerializer,ChatHistorySerializer,SearchQuerySerializer
 from rag.models import UploadedDocument,ChatHistory
+from accounts.permission import IsAuthenticatedAndVerified
 # Create your views here.
 
 
 class DocumentListCreateView(APIView):
+    permission_classes = [IsAuthenticatedAndVerified]
     def get(self, request):
         documents = DocumentService.list_all()
         serializer = UploadedDocumentSerializer(documents, many=True)
@@ -42,6 +44,7 @@ class DocumentListCreateView(APIView):
 
 
 class DocumentDetailView(APIView):
+    permission_classes = [IsAuthenticatedAndVerified]
     def delete(self, request, document_id):
         try:
             DocumentService.delete(document_id)
@@ -56,6 +59,7 @@ class DocumentDetailView(APIView):
             )
 
 class DocumentStatusView(APIView):
+    permission_classes = [IsAuthenticatedAndVerified]
     def get(self, request, document_id):
         try:
             status_data = DocumentService.get_status(document_id)
@@ -67,6 +71,7 @@ class DocumentStatusView(APIView):
             )
 
 class ChatHistoryView(APIView):
+    permission_classes = [IsAuthenticatedAndVerified]
     def get(self,request,document_id):
         try:
             UploadedDocument.objects.get(id=document_id)
@@ -96,6 +101,7 @@ class ChatHistoryView(APIView):
 
 
 class QuestionAnswer(APIView):
+    permission_classes = [IsAuthenticatedAndVerified]
     def post(self, request):
         serializer = QuestionSerializer(data=request.data)
         if not serializer.is_valid():
@@ -123,6 +129,7 @@ class QuestionAnswer(APIView):
             )
 
 class SyncDrive(APIView):
+    # permission_classes = [IsAuthenticatedAndVerified]
     def post(self, request):
         """
         Sync Google Drive files with local database.
@@ -136,6 +143,7 @@ class SyncDrive(APIView):
 
 
 class SearchView(APIView):
+    permission_classes = [IsAuthenticatedAndVerified]
     def get(self, request):
         serializer = SearchQuerySerializer(data=request.query_params)
         serializer.is_valid(raise_exception=True)
