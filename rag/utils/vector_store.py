@@ -8,9 +8,16 @@ from django.conf import settings as django_settings
 
 GLOBAL_COLLECTION_NAME = "global_documents"
 
-print("Embedding model is loading...")
-EMBEDDING_MODEL = SentenceTransformer('all-MiniLM-L6-v2')
-print("Embedding model ready")
+_model = None
+
+def get_embedding_model():
+    global _model
+    if _model is None:
+        print("Embedding model is loading...")
+        from sentence_transformers import SentenceTransformer
+        _model = SentenceTransformer("all-MiniLM-L6-v2")
+        print("Embedding model ready")
+    return _model
 
 # Lock to serialize concurrent .encode() calls.
 # sentence-transformers is NOT thread-safe; two threads calling .encode()
@@ -52,7 +59,7 @@ def get_global_collection():
 
 def create_embeddings(text):
     """ Text to number (vectors) """
-    embedding = EMBEDDING_MODEL.encode(text)
+    embedding = get_embedding_model().encode(text)
     
     return embedding.tolist()
 
@@ -60,7 +67,7 @@ def create_embeddings(text):
 def create_embedding_batch(texts):
     """ create multiple vectors """
     with _EMBEDDING_LOCK:
-        embedding = EMBEDDING_MODEL.encode(
+        embedding = get_embedding_model().encode(
             texts,
             batch_size=32,
             show_progress_bar=False,  
