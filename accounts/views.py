@@ -9,8 +9,9 @@ from accounts.serializers import (
     ResendOTPSerializer,
     LoginSerializer,
 )
+from shared.json_response import response_json
+
 from accounts.utils import (
-    response_json,
     set_user_otp,
     verify_user_otp,
     clear_user_otp,
