@@ -43,16 +43,17 @@ class UserManager(BaseUserManager):
         user.save(using=self._db)
         return user
 
-    def create_superuser(self, email, password:None, display_name, **extra_fileds):
+    def create_superuser(self, email, password=None, display_name=None, **extra_fileds):
         extra_fileds.setdefault('is_staff', True)
         extra_fileds.setdefault('is_superuser', True)
+        extra_fileds.setdefault('is_active', True)
 
         if extra_fileds.get('is_staff') is not True:
             raise ValueError("Superuser must have is_staff True")
         if extra_fileds.get('is_superuser') is not True:
             raise ValueError("Superuser must have is_superuser True")
         
-        return self.create_user(email,password,display_name,**extra_fileds)
+        return self.create_user(email, password, display_name, **extra_fileds)
 
 class User(AbstractUser, PermissionsMixin):
 
