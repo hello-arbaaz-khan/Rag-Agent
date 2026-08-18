@@ -8,7 +8,7 @@ from rest_framework.response import Response
 from apps.rag.serializers import UploadedDocumentSerializer,QuestionSerializer,ChatHistorySerializer,SearchQuerySerializer
 from apps.rag.models import UploadedDocument,ChatHistory
 from apps.auth_manager.permission import IsAuthenticatedAndVerified
-from shared.json_response import response_json
+from apps.shared.json_response import response_json
 # Create your views here.
 
 
