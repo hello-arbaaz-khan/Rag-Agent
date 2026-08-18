@@ -1,9 +1,10 @@
 from sentence_transformers import SentenceTransformer
-from rag.models import DocumemtsChunks
+from apps.rag.models import DocumemtsChunks
 import chromadb
 import os
 import threading
 from django.conf import settings as django_settings
+from sentence_transformers import SentenceTransformer
 
 
 GLOBAL_COLLECTION_NAME = "global_documents"
@@ -14,7 +15,6 @@ def get_embedding_model():
     global _model
     if _model is None:
         print("Embedding model is loading...")
-        from sentence_transformers import SentenceTransformer
         _model = SentenceTransformer("all-MiniLM-L6-v2")
         print("Embedding model ready")
     return _model

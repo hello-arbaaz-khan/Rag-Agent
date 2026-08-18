@@ -1,5 +1,5 @@
 from django.urls import path
-from rag.views import DocumentListCreateView,DocumentStatusView,QuestionAnswer,DocumentDetailView,ChatHistoryView,SyncDrive,SearchView
+from apps.rag.views import DocumentListCreateView,DocumentStatusView,QuestionAnswer,DocumentDetailView,ChatHistoryView,SyncDrive,SearchView
 
 urlpatterns = [
     path('upload/', DocumentListCreateView.as_view(), name='upload'),

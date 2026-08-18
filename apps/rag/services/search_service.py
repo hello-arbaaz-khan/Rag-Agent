@@ -3,9 +3,9 @@ from datetime import datetime
 
 from django.db.models import Count
 from django.utils import timezone
-from rag.models import DriveDocument
-from rag.utils.vector_store import search_all_documents
-from rag.utils.query_intent import parse_query_intent
+from apps.rag.models import DriveDocument
+from apps.rag.utils.vector_store import search_all_documents
+from apps.rag.utils.query_intent import parse_query_intent
 
 
 SYNC_STATUS_ORDER = {"indexed": 0, "processing": 1, "pending": 2, "failed": 3}

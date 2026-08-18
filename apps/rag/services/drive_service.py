@@ -1,8 +1,8 @@
 from django.core.files.base import ContentFile
 from django.utils.dateparse import parse_datetime
-from rag.services.document_service import DocumentService
+from apps.rag.services.document_service import DocumentService
 import base64
-from rag.models import DriveDocument
+from apps.rag.models import DriveDocument
 import requests
 from django.conf import settings
 

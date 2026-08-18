@@ -2,8 +2,8 @@ import re
 import fitz
 import docx
 
-from rag.models import DocumemtsChunks,UploadedDocument
-from rag.utils.vector_store import store_document_chunks
+from apps.rag.models import DocumemtsChunks,UploadedDocument
+from apps.rag.utils.vector_store import store_document_chunks
  
 
 def extract_text_from_pdf(file_path):

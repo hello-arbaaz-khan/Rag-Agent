@@ -2,16 +2,14 @@ from django.contrib.auth import get_user_model
 from rest_framework.views import APIView
 from rest_framework.permissions import AllowAny
 from rest_framework_simplejwt.tokens import RefreshToken
-
-from accounts.serializers import (
+from apps.auth_manager.utils import response_json
+from apps.auth_manager.serializers import (
     SignupSerializer,
     VerifyOTPSerializer,
     ResendOTPSerializer,
     LoginSerializer,
 )
-from shared.json_response import response_json
-
-from accounts.utils import (
+from apps.auth_manager.utils import (
     set_user_otp,
     verify_user_otp,
     clear_user_otp,

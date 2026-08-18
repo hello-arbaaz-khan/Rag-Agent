@@ -27,6 +27,8 @@ ENV/
 *.sqlite3
 *.db
 chroma_db/
+media/
+uploads/
 
 # Frontend / Node dependencies & build output
 node_modules/
@@ -44,6 +46,7 @@ build/
 *.sublime-workspace
 pyrightconfig.json
 pyrefly.toml
+pytest.ini
 
 # OS & Log files
 *.log

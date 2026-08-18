@@ -1,8 +1,8 @@
-from rag.models import UploadedDocument,ChatHistory
-from rag.utils.rag_engine import (
+from apps.rag.models import UploadedDocument,ChatHistory
+from apps.rag.utils.rag_engine import (
     build_context, build_prompt, generate_answer, calculate_confidence
 )
-from rag.utils.vector_store import search_similar_chunks
+from apps.rag.utils.vector_store import search_similar_chunks
 
 
 class QAService:
