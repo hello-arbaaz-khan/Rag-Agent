@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from rag.models import UploadedDocument, DocumemtsChunks,ChatHistory
+from apps.rag.models import UploadedDocument, DocumemtsChunks,ChatHistory
 
 class DocumentChunksSerializer(serializers.ModelSerializer):
     class Meta:

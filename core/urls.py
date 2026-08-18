@@ -22,8 +22,8 @@ from django.conf.urls.static import static
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('api/',include('rag.urls')),
-    path('api/auth/', include('accounts.urls')),
+    path('api/', include('apps.rag.urls')),
+    path('api/auth/', include('apps.auth_manager.urls')),
 ]
 
 if settings.DEBUG:

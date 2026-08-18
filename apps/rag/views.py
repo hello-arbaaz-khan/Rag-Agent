@@ -1,13 +1,13 @@
-from rag.services.search_service import SearchService
-from rag.services.drive_service import sync_drive_documents
-from rag.services.document_service import DocumentService
-from rag.services.qa_service import QAService
+from apps.rag.services.search_service import SearchService
+from apps.rag.services.drive_service import sync_drive_documents
+from apps.rag.services.document_service import DocumentService
+from apps.rag.services.qa_service import QAService
 from rest_framework.views import APIView
 from rest_framework import status
 from rest_framework.response import Response
-from rag.serializers import UploadedDocumentSerializer,QuestionSerializer,ChatHistorySerializer,SearchQuerySerializer
-from rag.models import UploadedDocument,ChatHistory
-from accounts.permission import IsAuthenticatedAndVerified
+from apps.rag.serializers import UploadedDocumentSerializer,QuestionSerializer,ChatHistorySerializer,SearchQuerySerializer
+from apps.rag.models import UploadedDocument,ChatHistory
+from apps.auth_manager.permission import IsAuthenticatedAndVerified
 # Create your views here.
 
 

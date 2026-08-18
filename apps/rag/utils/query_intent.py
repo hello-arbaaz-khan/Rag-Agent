@@ -22,7 +22,7 @@ import json
 import logging
 from datetime import date
 
-from rag.utils.rag_engine import get_client
+from apps.rag.utils.rag_engine import get_client
 
 logger = logging.getLogger(__name__)
 

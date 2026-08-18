@@ -1,5 +1,5 @@
 from django.core.management.base import BaseCommand
-from rag.tasks import requeue_stuck_documents
+from apps.rag.tasks import requeue_stuck_documents
 
 class Command(BaseCommand):
     help = "Finds documents stuck in processing for more than 10 minutes and retries processing them."

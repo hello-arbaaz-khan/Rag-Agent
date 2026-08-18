@@ -1,6 +1,6 @@
-from rag.models import UploadedDocument
-from rag.utils.vector_store import delete_document_collection, delete_global_document_chunks
-from rag.tasks import process_document_task
+from apps.rag.models import UploadedDocument
+from apps.rag.utils.vector_store import delete_document_collection, delete_global_document_chunks
+from apps.rag.tasks import process_document_task
 
 
 class DocumentService:

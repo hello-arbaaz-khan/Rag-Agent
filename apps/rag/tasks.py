@@ -2,8 +2,8 @@ from datetime import timedelta
 from celery import shared_task
 from django.utils import timezone
 from django.db.models import Q
-from rag.utils.pdf_processor import process_document
-from rag.models import UploadedDocument
+from apps.rag.utils.pdf_processor import process_document
+from apps.rag.models import UploadedDocument
 
 @shared_task(bind=True, max_retries=3, default_retry_delay=30)
 def process_document_task(self, document_id):
