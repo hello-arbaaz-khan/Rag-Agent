@@ -1,4 +1,5 @@
 from django.db import models
+from pgvector.django import VectorField
 
 # Create your models here.
 class UploadedDocument(models.Model):
@@ -47,7 +48,7 @@ class DocumemtsChunks(models.Model):
     chunk_text = models.TextField(verbose_name="Chunk text")
     chunk_size = models.IntegerField(default=0, verbose_name="Chunks size")
     chunk_index = models.IntegerField(verbose_name="Chunks index")
-    embedding = models.JSONField(verbose_name="Embedding", null=True, blank=True)
+    embedding = VectorField(dimensions=384, verbose_name="Embedding", null=True, blank=True)
     page_number = models.IntegerField(default=0, verbose_name="Page number")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Created at")
     

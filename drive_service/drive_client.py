@@ -1,12 +1,31 @@
 import os
+import socket
+import httplib2
 import io
 from googleapiclient.http import MediaIoBaseDownload
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
+from google_auth_httplib2 import AuthorizedHttp
 
 from config import settings
+
+_original_getaddrinfo = socket.getaddrinfo
+
+
+def _prefer_ipv4_for_google_apis():
+    def getaddrinfo(host, port, family=0, type=0, proto=0, flags=0):
+        results = _original_getaddrinfo(host, port, family, type, proto, flags)
+        if host and host.endswith("googleapis.com"):
+            results.sort(key=lambda item: 0 if item[0] == socket.AF_INET else 1)
+        return results
+
+    socket.getaddrinfo = getaddrinfo
+
+
+if settings.google_api_prefer_ipv4:
+    _prefer_ipv4_for_google_apis()
 
 def get_credentials():
     """
@@ -56,7 +75,8 @@ def get_credentials():
 
 def get_drive_service():
     creds = get_credentials()
-    return build('drive','v3',credentials=creds)
+    http = AuthorizedHttp(creds, http=httplib2.Http(timeout=settings.google_api_timeout_seconds))
+    return build('drive', 'v3', http=http, cache_discovery=False)
 
 def list_files(page_size: int = 50, page_token: str = None):
     service = get_drive_service()

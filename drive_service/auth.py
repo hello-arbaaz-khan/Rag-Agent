@@ -39,7 +39,7 @@ def main():
     with open(settings.google_token_file, "w") as token_file:
         token_file.write(creds.to_json())
 
-    print(f"\n✅ Authentication successful!")
+    print(f"\n Authentication successful!")
     print(f"   Token saved to: {settings.google_token_file}")
     print(f"   Restart the FastAPI server to pick up the new token.\n")
 

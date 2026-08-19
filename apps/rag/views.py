@@ -13,7 +13,7 @@ from apps.shared.json_response import response_json
 
 
 class DocumentListCreateView(APIView):
-    permission_classes = [IsAuthenticatedAndVerified]
+    # permission_classes = [IsAuthenticatedAndVerified]
     def get(self, request):
         documents = DocumentService.list_all()
         serializer = UploadedDocumentSerializer(documents, many=True)
@@ -48,7 +48,7 @@ class DocumentListCreateView(APIView):
 
 
 class DocumentDetailView(APIView):
-    permission_classes = [IsAuthenticatedAndVerified]
+    # permission_classes = [IsAuthenticatedAndVerified]
     def delete(self, request, document_id):
         try:
             DocumentService.delete(document_id)
@@ -65,7 +65,7 @@ class DocumentDetailView(APIView):
             )
 
 class DocumentStatusView(APIView):
-    permission_classes = [IsAuthenticatedAndVerified]
+    # permission_classes = [IsAuthenticatedAndVerified]
     def get(self, request, document_id):
         try:
             status_data = DocumentService.get_status(document_id)
@@ -78,7 +78,7 @@ class DocumentStatusView(APIView):
             )
 
 class ChatHistoryView(APIView):
-    permission_classes = [IsAuthenticatedAndVerified]
+    # permission_classes = [IsAuthenticatedAndVerified]
     def get(self,request,document_id):
         try:
             UploadedDocument.objects.get(id=document_id)
@@ -112,7 +112,7 @@ class ChatHistoryView(APIView):
 
 
 class QuestionAnswer(APIView):
-    permission_classes = [IsAuthenticatedAndVerified]
+    # permission_classes = [IsAuthenticatedAndVerified]
     def post(self, request):
         serializer = QuestionSerializer(data=request.data)
         if not serializer.is_valid():
@@ -157,7 +157,7 @@ class SyncDrive(APIView):
 
 
 class SearchView(APIView):
-    permission_classes = [IsAuthenticatedAndVerified]
+    # permission_classes = [IsAuthenticatedAndVerified]
     def get(self, request):
         serializer = SearchQuerySerializer(data=request.query_params)
         serializer.is_valid(raise_exception=True)
