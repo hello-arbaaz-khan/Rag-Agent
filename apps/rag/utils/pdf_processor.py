@@ -2,13 +2,11 @@ import re
 import fitz
 import docx
 
-from apps.rag.models import DocumemtsChunks,UploadedDocument
+from apps.rag.models import DocumemtsChunks, UploadedDocument
 from apps.rag.utils.vector_store import store_document_chunks
- 
+
 
 def extract_text_from_pdf(file_path):
-    """This function is used to extract text from pdf file."""
- 
     page_text = []
     pfd_document = fitz.open(file_path)
 
@@ -23,21 +21,12 @@ def extract_text_from_pdf(file_path):
 
 
 def extract_text_from_txt(file_path):
-    """
-    TXT file se text nikalo
-    Return: List of tuples [(1, text)]
-    """
     with open(file_path, 'r', encoding='utf-8') as f:
         text = f.read()
-
     return [(1, text)]
 
 
-
 def extract_text_from_docx(file_path):
-    """
-    This function is used to extract text from docx file.
-    """
     doc = docx.Document(file_path)
     full_text = []
 
@@ -49,50 +38,35 @@ def extract_text_from_docx(file_path):
 
 
 def clean_text(text):
-    """
-    cleaning the text from pdf file
-    """
-    # Multiple to single space
     text = re.sub(r' +', ' ', text)
-    
-    # Muliple to single new line
     text = re.sub(r'\n+', '\n', text)
-
-    # Remove special characters
     text = re.sub(r'[^\w\s\.\,\!\?\:\;\-\(\)\"]', ' ', text)
-
-    # Remove leading and trailing spaces
     text = text.strip()
-
     return text
 
 
 def create_chunks(page_texts, chunk_size=500, chunk_overlap=50):
-    """This function is used to create chunks of text."""
     chunk = []
-
     chunk_index = 0
 
     for page_num, text in page_texts:
-
         text = clean_text(text)
         word = text.split()
 
         if not word:
             continue
-        
+
         start = 0
         while start < len(word):
             end = start + chunk_size
             chunk_word = word[start:end]
-
             chunk_text = ' '.join(chunk_word)
 
             chunk.append({
-                "chunk_text":chunk_text,
-                "page_number":page_num,
-                "chunk_index":chunk_index,
-                "size":len(chunk_word)
+                "chunk_text": chunk_text,
+                "page_number": page_num,
+                "chunk_index": chunk_index,
+                "size": len(chunk_word)
             })
 
             chunk_index += 1
@@ -101,7 +75,6 @@ def create_chunks(page_texts, chunk_size=500, chunk_overlap=50):
 
 
 def get_extractor(file_type):
-
     extractors = {
         "pdf": extract_text_from_pdf,
         "docx": extract_text_from_docx,
@@ -112,17 +85,13 @@ def get_extractor(file_type):
 
 
 def process_document(document):
-    """Process full document.
-    1. Extract text
-    2. Clean text
-    3. Chunk it
-    4. Save chunks to DB
-    5. Create embeddings and store in ChromaDB
-    6. Mark document as processed
-    """
+    """Process full document with mid-flight existence checks."""
     extractor = get_extractor(document.file_type)
     if not extractor:
         raise ValueError(f"File type {document.file_type} is not supported")
+
+    if not UploadedDocument.objects.filter(id=document.id).exists():
+        raise ValueError("Document was deleted before processing started")
 
     file_path = document.file.path
     pages_text = extractor(file_path)
@@ -146,12 +115,13 @@ def process_document(document):
         for chunk in chunks
     ]
     DocumemtsChunks.objects.bulk_create(chunks_obj)
-    
+
+    # Another mid-flight check before embeddings
+    if not UploadedDocument.objects.filter(id=document.id).exists():
+        DocumemtsChunks.objects.filter(document=document).delete()
+        raise ValueError("Document was deleted during chunk creation")
+
     store_document_chunks(document.id)
-    
-    document.is_processed = True
-    document.processing_error = None
-    document.save()
 
     print(f"{document.name}: {len(chunks)} chunks created.")
     return len(chunks)

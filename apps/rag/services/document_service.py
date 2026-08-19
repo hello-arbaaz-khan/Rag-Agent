@@ -1,46 +1,59 @@
-from apps.rag.models import UploadedDocument
-from apps.rag.utils.vector_store import delete_document_collection, delete_global_document_chunks
+import hashlib
+import logging
+
+from django.db import transaction
+from apps.rag.models import UploadedDocument, DocumemtsChunks
+from apps.rag.utils.vector_store import delete_document_collection
 from apps.rag.tasks import process_document_task
+
+logger = logging.getLogger(__name__)
 
 
 class DocumentService:
     """Business logic for document upload, processing, and deletion."""
 
     @staticmethod
+    def _generate_file_hash(file):
+        file.seek(0)
+        hasher = hashlib.md5()
+        for chunk in file.chunks():
+            hasher.update(chunk)
+        file_hash = hasher.hexdigest()
+        file.seek(0)
+        return file_hash
+
+    @staticmethod
     def create_and_process(file, name, file_type):
+        file_hash = DocumentService._generate_file_hash(file)
+
+        existing = UploadedDocument.objects.filter(file_hash=file_hash).first()
+        if existing:
+            return existing
+
         document = UploadedDocument.objects.create(
             name=name,
             file=file,
             file_type=file_type,
             file_size=file.size,
+            file_hash=file_hash,
         )
 
-        # Process document in background thread (non-blocking)
         process_document_task.delay(document.id)
-
         return document
 
     @staticmethod
     def delete(document_id):
-        import logging
-        from django.db import transaction
-        logger = logging.getLogger(__name__)
-
-        document = UploadedDocument.objects.get(id=document_id)
-        collection_name = f"document{document_id}"
-
         with transaction.atomic():
+            document = UploadedDocument.objects.select_for_update().get(id=document_id)
+
+            DocumemtsChunks.objects.filter(document=document).delete()
             document.delete()
-            try:
-                delete_document_collection(document_id)
-            except Exception as e:
-                logger.error("Failed to delete Chroma collection %s: %s. Collection is orphaned.", collection_name, e)
-                print(f"Failed to delete Chroma collection {collection_name}: {e}. Collection is orphaned.")
-            try:
-                delete_global_document_chunks(document_id)
-            except Exception as e:
-                logger.error("Failed to delete global Chroma chunks for document %s: %s", document_id, e)
-                print(f"Failed to delete global Chroma chunks for document {document_id}: {e}")
+
+        try:
+            delete_document_collection(document_id)
+        except Exception as e:
+            logger.error("Failed to delete vector chunks for doc %s: %s", document_id, e)
+
         return document
 
     @staticmethod

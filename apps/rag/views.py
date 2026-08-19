@@ -4,7 +4,6 @@ from apps.rag.services.document_service import DocumentService
 from apps.rag.services.qa_service import QAService
 from rest_framework.views import APIView
 from rest_framework import status
-from rest_framework.response import Response
 from apps.rag.serializers import UploadedDocumentSerializer,QuestionSerializer,ChatHistorySerializer,SearchQuerySerializer
 from apps.rag.models import UploadedDocument,ChatHistory
 from apps.auth_manager.permission import IsAuthenticatedAndVerified

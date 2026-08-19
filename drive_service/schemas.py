@@ -1,21 +1,24 @@
 from pydantic import BaseModel
 from datetime import datetime
+from typing import List, Optional
+
 
 class DriveFile(BaseModel):
-    id:str
-    name:str
-    modified_time:datetime
-    mime_type:str
+    id: str
+    name: str
+    mime_type: str
+    modified_time: datetime
+    trashed: bool = False  # Default False
 
 
 class DriveFileListResponse(BaseModel):
-    files:list[DriveFile]
-    count:int
-    next_page_token: str | None = None
+    files: List[DriveFile]
+    count: int
+    next_page_token: Optional[str] = None
 
-    
+
 class DriveFileDownloadResponse(BaseModel):
-    id:str
-    name:str
-    mime_type:str
-    content_base64:str
+    id: str
+    name: str
+    mime_type: str
+    content_base64: str

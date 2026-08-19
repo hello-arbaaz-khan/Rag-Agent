@@ -13,7 +13,6 @@ from config import settings
 
 _original_getaddrinfo = socket.getaddrinfo
 
-
 def _prefer_ipv4_for_google_apis():
     def getaddrinfo(host, port, family=0, type=0, proto=0, flags=0):
         results = _original_getaddrinfo(host, port, family, type, proto, flags)
@@ -23,19 +22,11 @@ def _prefer_ipv4_for_google_apis():
 
     socket.getaddrinfo = getaddrinfo
 
-
 if settings.google_api_prefer_ipv4:
     _prefer_ipv4_for_google_apis()
 
-def get_credentials():
-    """
-    Load OAuth credentials from token.json and refresh if expired.
 
-    IMPORTANT: This function will NEVER launch a browser/local server.
-    flow.run_local_server() hangs forever in server or Django shell contexts.
-    If no valid token exists, raise RuntimeError with clear instructions.
-    To generate a fresh token, run: python auth.py  (from drive_service/)
-    """
+def get_credentials():
     creds = None
 
     if os.path.exists(settings.google_token_file):
@@ -45,29 +36,20 @@ def get_credentials():
 
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
-            # Attempt a silent refresh using the stored refresh_token
             try:
                 creds.refresh(Request())
-                # Persist the newly refreshed token so next call is instant
                 with open(settings.google_token_file, 'w') as token_file:
                     token_file.write(creds.to_json())
             except Exception as e:
                 raise RuntimeError(
                     f"OAuth token refresh failed: {e}. "
-                    "The refresh token may be expired (Google 'Testing' mode "
-                    "refresh tokens expire after 7 days). "
-                    "Re-authenticate by running:  python auth.py  "
+                    "Re-authenticate by running: python auth.py "
                     "inside the drive_service/ directory."
                 ) from e
         else:
-            # No token file, or token has no refresh_token at all.
-            # We CANNOT call flow.run_local_server() here — it would hang forever
-            # waiting for a browser callback that will never arrive in a server context.
             raise RuntimeError(
                 "No valid OAuth token found. "
-                "Run:  python auth.py  inside the drive_service/ directory "
-                "to complete the one-time browser authentication, then restart "
-                "the FastAPI service."
+                "Run: python auth.py inside the drive_service/ directory."
             )
 
     return creds
@@ -78,28 +60,34 @@ def get_drive_service():
     http = AuthorizedHttp(creds, http=httplib2.Http(timeout=settings.google_api_timeout_seconds))
     return build('drive', 'v3', http=http, cache_discovery=False)
 
+
 def list_files(page_size: int = 50, page_token: str = None):
     service = get_drive_service()
+    
+    # IMPORTANT: q="trashed=false" only active files 
+    # Trash deleted files will not be show 
     result = service.files().list(
         pageSize=page_size,
         pageToken=page_token,
-        fields='nextPageToken, files(id,name,mimeType,modifiedTime)'
+        q="trashed=false",
+        fields='nextPageToken, files(id,name,mimeType,modifiedTime,trashed)'
     ).execute()
+    
     return {
         'files': result.get('files', []),
         'next_page_token': result.get('nextPageToken'),
     }
 
 
-def download_file(file_id:str) -> bytes:
-    """Download google drive file as bytes"""
+def download_file(file_id: str) -> bytes:
     service = get_drive_service()
     request = service.files().get_media(fileId=file_id)
     buffer = io.BytesIO()
     downloader = MediaIoBaseDownload(buffer, request)
 
-    done=False
+    done = False
     while not done:
-        status,done = downloader.next_chunk()
+        status, done = downloader.next_chunk()
+    
     buffer.seek(0)
     return buffer.read()
