@@ -109,7 +109,7 @@ export const documentApi = {
       const { data } = await apiClient.get("search/", {
         params: { query }
       });
-      return data;
+      return data.data ?? data;
     } catch (error) {
       throw new Error(getErrorMessage(error, "Search failed."));
     }
