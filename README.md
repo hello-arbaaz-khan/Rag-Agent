@@ -1,4 +1,4 @@
-# DocuMind - Backend Documentation
+# DocuMind - RAG Backend
 
 ## Table of Contents
 
@@ -13,21 +13,23 @@
 - [Background Tasks](#background-tasks)
 - [Utilities](#utilities)
 - [Development Guidelines](#development-guidelines)
+- [Authentication](#authentication)
 
 ---
 
 ## Overview
 
-DocuMind is a **RAG (Retrieval-Augmented Generation)** based document question-answering system built with Django. It allows users to upload documents (PDF, DOC, DOCX, TXT), processes them into chunks, generates embeddings, and enables natural language questioning against document content.
+DocuMind is a **RAG (Retrieval-Augmented Generation)** based document question-answering system built with Django and PostgreSQL. It allows users to authenticate, upload documents (PDF, DOC, DOCX, TXT), process them into chunks, generate embeddings using pgvector, and enable natural language questioning against document content.
 
 ### Key Features
 
+- **User Authentication** - JWT-based authentication with Django Custom User model
 - **Document Upload & Management** - Upload, list, and delete documents
-- **Semantic Search** - Search across all documents using vector similarity
-- **Q&A System** - Ask questions and get AI-powered answers from documents
+- **Semantic Search** - Vector-based search using PostgreSQL pgvector extension
+- **Q&A System** - Ask questions and get AI-powered answers from documents using Groq LLM
 - **Chat History** - Maintain conversation history per document
 - **Google Drive Integration** - Sync documents from Google Drive
-- **Async Processing** - Background document processing with Celery
+- **Async Processing** - Background document processing with Celery & Redis
 
 ---
 
@@ -41,64 +43,78 @@ The system follows a request-response flow split into two main pipelines:
 
 **Upload & Indexing Pipeline:**
 
-1. User uploads a document via the React frontend
-2. Django API saves metadata to SQLite and queues an async Celery task
+1. User authenticates and uploads a document via the React frontend
+2. Django API saves metadata to PostgreSQL and queues an async Celery task
 3. Celery worker (via Redis broker) parses the file, splits it into chunks, and generates embeddings using sentence-transformers
-4. Chunks + embeddings are stored in ChromaDB (per-document and global collections)
+4. Chunks + embeddings are stored in PostgreSQL with pgvector extension (per-document and global collections)
 
 **Question & Answer Pipeline:**
 
 1. User submits a question tied to a document (or global search)
-2. The question is embedded and matched against ChromaDB using cosine similarity
+2. The question is embedded and matched against PostgreSQL using pgvector cosine similarity
 3. Top-k relevant chunks are retrieved and passed as context to the Groq LLM along with conversation history
 4. The LLM generates an answer, along with a confidence score based on retrieval similarity
 
-```
+## Project Structure
 
-/workspace
-├── documind/                 # Django project configuration
+```
+documind/                        # Project root
+├── core/                        # Django project configuration
 │   ├── __init__.py
-│   ├── asgi.py              # ASGI config for async support
-│   ├── celery.py            # Celery configuration
-│   ├── settings.py          # Django settings
-│   ├── urls.py              # Root URL routing
-│   └── wsgi.py              # WSGI config for deployment
+│   ├── asgi.py                 # ASGI config for async support
+│   ├── celery.py               # Celery configuration
+│   ├── settings.py             # Django settings
+│   ├── urls.py                 # Root URL routing
+│   └── wsgi.py                 # WSGI config for deployment
 │
-├── rag/                      # Main application module
-│   ├── models.py            # Database models (UploadedDocument, ChatHistory, etc.)
-│   ├── views.py             # API endpoints (APIView classes)
-│   ├── urls.py              # URL routing for rag app
-│   ├── serializers.py       # DRF serializers for request/response validation
-│   ├── tasks.py             # Celery background tasks
-│   ├── admin.py             # Django admin configuration
-│   ├── services/            # Business logic layer
-│   │   ├── __init__.py
-│   │   ├── document_service.py    # Document CRUD operations
-│   │   ├── qa_service.py          # Question answering logic
-│   │   ├── search_service.py      # Search functionality
-│   │   └── drive_service.py       # Google Drive integration
-│   ├── utils/               # Utility modules
-│   │   ├── __init__.py
-│   │   ├── vector_store.py        # ChromaDB vector operations
-│   │   ├── rag_engine.py          # LLM interaction & prompt building
-│   │   └── pdf_processor.py       # Document parsing utilities
-│   ├── migrations/          # Database migrations
-│   └── management/          # Custom Django management commands
+├── apps/                        # Applications directory
+│   ├── rag/                    # Main RAG application
+│   │   ├── models.py           # Database models (UploadedDocument, ChatHistory, etc.)
+│   │   ├── views.py            # API endpoints (APIView classes)
+│   │   ├── urls.py             # URL routing for rag app
+│   │   ├── serializers.py      # DRF serializers for request/response validation
+│   │   ├── tasks.py            # Celery background tasks
+│   │   ├── admin.py            # Django admin configuration
+│   │   ├── services/           # Business logic layer
+│   │   │   ├── __init__.py
+│   │   │   ├── document_service.py    # Document CRUD operations
+│   │   │   ├── qa_service.py          # Question answering logic
+│   │   │   ├── search_service.py      # Search functionality
+│   │   │   └── drive_service.py       # Google Drive integration
+│   │   ├── utils/              # Utility modules
+│   │   │   ├── __init__.py
+│   │   │   ├── vector_store.py        # pgvector operations
+│   │   │   ├── rag_engine.py          # LLM interaction & prompt building
+│   │   │   ├── query_intent.py        # Query intent analysis
+│   │   │   └── pdf_processor.py       # Document parsing utilities
+│   │   ├── migrations/         # Database migrations
+│   │   └── management/         # Custom Django management commands
+│   │
+│   ├── auth_manager/           # Authentication & Authorization
+│   │   ├── models.py           # Custom User model
+│   │   ├── views.py            # Authentication API endpoints
+│   │   ├── serializers.py      # Auth serializers
+│   │   ├── permission.py       # Custom permission classes
+│   │   ├── urls.py             # Auth URL routing
+│   │   └── utils.py            # Auth utilities
+│   │
+│   └── shared/                 # Shared utilities
+│       └── json_response.py    # Unified JSON response format
 │
-├── drive_service/            # Standalone Google Drive service
-│   ├── main.py              # FastAPI application
-│   ├── auth.py              # Google OAuth authentication
-│   ├── drive_client.py      # Google Drive API client
-│   ├── config.py            # Configuration settings
-│   └── schemas.py           # Pydantic schemas
+├── drive_service/              # Standalone Google Drive service
+│   ├── main.py                 # FastAPI application
+│   ├── auth.py                 # Google OAuth authentication
+│   ├── drive_client.py         # Google Drive API client
+│   ├── config.py               # Configuration settings
+│   └── schemas.py              # Pydantic schemas
 │
-├── frontend/                 # Frontend application (React/Vite)
-├── manage.py                 # Django management script
-├── requirements.txt          # Python dependencies
-└── .env.example              # Environment variables template
+├── frontend/                   # Frontend application (React/Vite)
+├── docs/                       # Documentation and diagrams
+├── manage.py                   # Django management script
+├── requirements.txt            # Python dependencies
+├── .env.example                # Environment variables template
+└── README.md                   # This file
 ```
-
----
 
 ## Technology Stack
 
@@ -106,11 +122,13 @@ The system follows a request-response flow split into two main pipelines:
 
 - **Django 6.0.6** - Web framework
 - **Django REST Framework 3.17.1** - API development
+- **djangorestframework-simplejwt 5.5.0** - JWT authentication
 
 ### Database & Storage
 
-- **SQLite3** - Primary database (with 30s write-lock timeout for concurrency)
-- **ChromaDB 1.5.9** - Vector database for embeddings
+- **PostgreSQL** - Primary relational database
+- **pgvector 0.3.6** - Vector database extension for PostgreSQL (embeddings storage)
+- **django-pgvector 0.1.2** - Django integration for pgvector
 
 ### Task Queue
 
@@ -130,7 +148,8 @@ The system follows a request-response flow split into two main pipelines:
 ### Utilities
 
 - **python-decouple 3.8** - Environment variable management
-- **django-cors-headers** - CORS support
+- **django-cors-headers 4.6.0** - CORS support
+- **requests 2.32.5** - HTTP client library
 
 ---
 
@@ -139,8 +158,9 @@ The system follows a request-response flow split into two main pipelines:
 ### Prerequisites
 
 - Python 3.10+
+- PostgreSQL 12+ (with pgvector extension)
 - Redis server running on `localhost:6379`
-- Google Cloud credentials (for Drive integration)
+- Google Cloud credentials (for Drive integration, optional)
 - Groq API key
 
 ### Step-by-Step Installation
@@ -148,7 +168,8 @@ The system follows a request-response flow split into two main pipelines:
 1. **Clone and navigate to project**
 
    ```bash
-   cd /workspace
+   git clone https://github.com/hello-arbaaz-khan/Rag-Agent.git
+   cd Rag-Agent
    ```
 
 2. **Create virtual environment**
@@ -164,20 +185,62 @@ The system follows a request-response flow split into two main pipelines:
    pip install -r requirements.txt
    ```
 
-4. **Configure environment variables**
+4. **Setup PostgreSQL and pgvector**
+
+   ```bash
+   # Create database
+   createdb documind
+   
+   # Connect to database and enable pgvector extension
+   psql documind -c "CREATE EXTENSION IF NOT EXISTS vector;"
+   ```
+
+5. **Configure environment variables**
 
    ```bash
    cp .env.example .env
    # Edit .env with your credentials
    ```
 
-5. **Run migrations**
+   Required environment variables:
+   ```
+   SECRET_KEY=your-secret-key-here
+   DEBUG=True
+   
+   # Database Configuration
+   DB_ENGINE=postgresql
+   DB_NAME=documind
+   DB_USER=postgres
+   DB_PASSWORD=your-password
+   DB_HOST=localhost
+   DB_PORT=5432
+   
+   # Celery & Redis
+   CELERY_BROKER_URL=redis://localhost:6379/0
+   CELERY_RESULT_BACKEND=redis://localhost:6379/0
+   
+   # Groq API
+   GROQ_API_KEY=your-groq-api-key
+   
+   # Optional: Google Drive
+   GOOGLE_CLIENT_ID=your-client-id
+   GOOGLE_CLIENT_SECRET=your-client-secret
+   GOOGLE_REDIRECT_URI=http://127.0.0.1:8001/callback
+   ```
+
+6. **Run migrations**
 
    ```bash
    python manage.py migrate
    ```
 
-6. **Start services**
+7. **Create superuser (optional)**
+
+   ```bash
+   python manage.py createsuperuser
+   ```
+
+8. **Start services**
 
    **Terminal 1 - Redis** (if not running):
 
@@ -188,7 +251,7 @@ The system follows a request-response flow split into two main pipelines:
    **Terminal 2 - Celery Worker**:
 
    ```bash
-   celery -A documind worker --loglevel=info
+   celery -A core worker --loglevel=info
    ```
 
    **Terminal 3 - Django Server**:
@@ -201,6 +264,9 @@ The system follows a request-response flow split into two main pipelines:
 
    ```bash
    cd drive_service
+   python -m venv venv
+   source venv/bin/activate
+   pip install -r requirements.txt
    uvicorn main:app --port 8001
    ```
 
