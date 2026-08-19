@@ -26,9 +26,8 @@ ENV/
 # Databases & Vector DB
 *.sqlite3
 *.db
-chroma_db/
-media/
-uploads/
+/media/
+/uploads/
 
 # Frontend / Node dependencies & build output
 node_modules/

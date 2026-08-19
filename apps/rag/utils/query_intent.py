@@ -22,11 +22,10 @@ import json
 import logging
 from datetime import date
 
-from apps.rag.utils.rag_engine import get_client
+from apps.rag.utils.rag_engine import get_client, get_groq_model
 
 logger = logging.getLogger(__name__)
 
-INTENT_MODEL = "llama-3.1-8b-instant"
 
 INTENT_PROMPT_TEMPLATE = """You are the query-understanding module for a document search engine.
 Today's date is {today}.
@@ -81,7 +80,7 @@ def parse_query_intent(query):
         client = get_client()
         prompt = INTENT_PROMPT_TEMPLATE.format(today=date.today().isoformat(), query=query)
         response = client.chat.completions.create(
-            model=INTENT_MODEL,
+            model=get_groq_model(),
             messages=[{"role": "user", "content": prompt}],
             temperature=0,
             max_tokens=200,

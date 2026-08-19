@@ -90,23 +90,17 @@ def _serialize_drive_doc(doc):
 class SearchService:
     @staticmethod
     def browse():
-        """No query — return ALL local Drive files, sorted by sync_status."""
-        all_docs = list(
-            DriveDocument.objects.select_related("document")
-            .annotate(annotated_chunks=Count("document__chunks"))
-            .all()
-        )
-        for doc in all_docs:
-            if doc.document_id is None:
-                doc.total_chunks = None
-            else:
-                doc.total_chunks = doc.annotated_chunks
+        """No query — return local rows plus a live Drive metadata fetch."""
+        from apps.rag.services.drive_service import browse_files
 
-        all_docs.sort(key=lambda d: (SYNC_STATUS_ORDER.get(d.sync_status, 9), d.name.lower()))
+        data = browse_files(page_size=50)
+        results = data.get("files", [])
 
         return {
-            "results": [_serialize_drive_doc(d) for d in all_docs],
-            "total": len(all_docs),
+            "results": results,
+            "total": len(results),
+            "next_page_token": data.get("next_page_token"),
+            "has_more": data.get("has_more", False),
         }
 
     @staticmethod

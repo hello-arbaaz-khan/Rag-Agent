@@ -1,6 +1,11 @@
 from decouple import config
 
 _client = None
+DEFAULT_GROQ_MODEL = "openai/gpt-oss-20b"
+
+def get_groq_model():
+    return config("GROQ_MODEL", default=DEFAULT_GROQ_MODEL)
+
 
 def get_client():
     global _client
@@ -65,12 +70,12 @@ Answer:"""
  
 def generate_answer(prompt):
     """
-    Get answer from Grow API
+    Get answer from Groq API
     """
     try:
         client = get_client()
         response = client.chat.completions.create(
-            model="llama-3.1-8b-instant",  
+            model=get_groq_model(),
             messages=[
                 {
                     "role": "user",
