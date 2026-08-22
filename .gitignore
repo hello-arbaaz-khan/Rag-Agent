@@ -36,6 +36,7 @@ dist/
 frontend/dist/
 build/
 .npm/
+ragdb_backup.dump
 
 # IDE & Editor settings
 .vscode/
@@ -45,8 +46,6 @@ build/
 *.sublime-workspace
 pyrightconfig.json
 pyrefly.toml
-pytest.ini
-
 # OS & Log files
 *.log
 .DS_Store

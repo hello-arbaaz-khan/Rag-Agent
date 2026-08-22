@@ -1,0 +1,31 @@
+# Python
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+venv/
+env/
+ENV/
+.venv
+pip-log.txt
+.pytest_cache
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Environment
+.env
+.env.local
+
+# Git
+.git
+.gitignore
+
+# Logs
+*.log

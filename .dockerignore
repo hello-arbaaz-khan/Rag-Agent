@@ -1,0 +1,52 @@
+# Git
+.git
+.gitignore
+.gitattributes
+
+# Python
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+venv/
+env/
+ENV/
+.venv
+pip-log.txt
+pip-delete-this-directory.txt
+.pytest_cache
+.tox/
+*.egg-info/
+dist/
+build/
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Media and cache
+media/
+.cache/
+
+# Dependencies
+node_modules/
+
+# Logs
+*.log
+logs/
+
+# Misc
+.coverage
+htmlcov/
+.pytest_cache/
+ragdb_backup.dump
