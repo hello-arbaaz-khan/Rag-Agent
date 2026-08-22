@@ -16,10 +16,14 @@ from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
-DRIVE_SERVICE_BASE_URL = "http://127.0.0.1:8001"
-
-
 from decouple import config
+
+# for docker
+DRIVE_SERVICE_BASE_URL = "http://drive_service:8001"
+
+# for local development
+# DRIVE_SERVICE_BASE_URL = "http://127.0.0.1:8001"
+
 
 CELERY_BROKER_URL = config('CELERY_BROKER_URL', default='redis://localhost:6379/0')
 CELERY_RESULT_BACKEND = config('CELERY_RESULT_BACKEND', default='redis://localhost:6379/0')
@@ -38,7 +42,7 @@ SECRET_KEY = config('SECRET_KEY')
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = config('DEBUG', default=False, cast=bool)
 
-ALLOWED_HOSTS = ['localhost', '127.0.0.1', '10.223.216.28']
+ALLOWED_HOSTS = ['localhost', '127.0.0.1', '10.223.216.28', 'django', '*.docker.local']
 
 
 # Application definition
