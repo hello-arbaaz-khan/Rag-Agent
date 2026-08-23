@@ -1,6 +1,7 @@
-import { BrainCircuit, FileWarning, MessageSquare, Search } from "lucide-react";
+import { BrainCircuit, FileWarning, LogOut, MessageSquare, Search, Settings } from "lucide-react";
 import { documentApi } from "../../services/api";
 import { useAppContext } from "../../context/AppContext";
+import { useAuth } from "../../context/AuthContext";
 import DocumentItem from "./DocumentItem";
 import UploadButton from "./UploadButton";
 
@@ -26,6 +27,7 @@ const Sidebar = ({ onUploadClick, activeView = "chat", onNavigate = () => {} }) 
     dispatch,
     addToast
   } = useAppContext();
+  const { user, logout } = useAuth();
 
   const handleDelete = async (document) => {
     try {
@@ -71,6 +73,19 @@ const Sidebar = ({ onUploadClick, activeView = "chat", onNavigate = () => {} }) 
             </button>
           );
         })}
+        <button
+          type="button"
+          onClick={() => onNavigate("settings")}
+          title="Change password"
+          aria-label="Settings"
+          className={`flex items-center justify-center rounded-xl border px-3 py-2.5 transition ${
+            activeView === "settings"
+              ? "border-blue-500/70 bg-blue-950/50 text-white"
+              : "border-slate-700/70 bg-slate-900/45 text-slate-300 hover:border-slate-500 hover:bg-slate-800/70"
+          }`}
+        >
+          <Settings className="h-4 w-4" />
+        </button>
       </nav>
 
       <div className="mt-6 flex items-center justify-between">
@@ -111,6 +126,24 @@ const Sidebar = ({ onUploadClick, activeView = "chat", onNavigate = () => {} }) 
             />
           ))}
         </div>
+      </div>
+
+      <div className="mt-4 flex items-center justify-between border-t border-slate-800 pt-4">
+        <div className="min-w-0">
+          <p className="truncate text-sm font-semibold text-white">
+            {user?.display_name || user?.username || user?.email || "Account"}
+          </p>
+          {user?.email ? <p className="truncate text-xs text-slate-400">{user.email}</p> : null}
+        </div>
+        <button
+          type="button"
+          onClick={logout}
+          title="Log out"
+          aria-label="Log out"
+          className="flex items-center justify-center rounded-xl border border-slate-700/70 bg-slate-900/45 p-2.5 text-slate-300 transition hover:border-red-500/60 hover:bg-red-950/40 hover:text-red-300"
+        >
+          <LogOut className="h-4 w-4" />
+        </button>
       </div>
     </aside>
   );

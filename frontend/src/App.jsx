@@ -4,6 +4,7 @@ import Toast from "./components/Common/Toast";
 import Sidebar from "./components/Sidebar/Sidebar";
 import UploadModal from "./components/Upload/UploadModal";
 import AdvancedSearch from "./components/Search/AdvancedSearch";
+import ChangePasswordPage from "./components/Auth/ChangePasswordPage";
 import { usePolling } from "./hooks/usePolling";
 import { useDriveAutoSync } from "./hooks/useDriveAutoSync";
 import { useAppContext } from "./context/AppContext";
@@ -28,8 +29,14 @@ const App = () => {
         <div className="h-[42vh] min-h-[330px] lg:h-full">
           <Sidebar onUploadClick={() => setUploadOpen(true)} activeView={view} onNavigate={setView} />
         </div>
-        <div className="min-h-0 flex-1">
-          {view === "search" ? <AdvancedSearch onOpenInChat={handleOpenInChat} /> : <ChatArea />}
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          {view === "search" ? <AdvancedSearch onOpenInChat={handleOpenInChat} /> : null}
+          {view === "settings" ? (
+            <div className="flex min-h-full items-center justify-center p-6">
+              <ChangePasswordPage onDone={() => setView("chat")} />
+            </div>
+          ) : null}
+          {view === "chat" ? <ChatArea /> : null}
         </div>
       </div>
       <UploadModal open={uploadOpen} onClose={() => setUploadOpen(false)} />
