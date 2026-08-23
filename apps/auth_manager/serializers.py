@@ -33,3 +33,39 @@ class ResendOTPSerializer(serializers.Serializer):
 class LoginSerializer(serializers.Serializer):
     email = serializers.EmailField()
     password = serializers.CharField(write_only=True)
+
+class ForgotPasswordSerializer(serializers.Serializer):
+    """Step 1 of the forgot-password flow: request an OTP by email."""
+    email = serializers.EmailField()
+ 
+ 
+class ResetPasswordSerializer(serializers.Serializer):
+    """Step 2 of the forgot-password flow: verify OTP and set a new password."""
+    email = serializers.EmailField()
+    otp = serializers.CharField(min_length=4, max_length=4)
+    new_password = serializers.CharField(write_only=True, min_length=8)
+ 
+    def validate_new_password(self, value):
+        validate_password(value)
+        return value
+ 
+ 
+class ChangePasswordSerializer(serializers.Serializer):
+    """For an already-authenticated user changing their own password."""
+    old_password = serializers.CharField(write_only=True)
+    new_password = serializers.CharField(write_only=True, min_length=8)
+    confirm_new_password = serializers.CharField(write_only=True, min_length=8)
+ 
+    def validate_new_password(self, value):
+        validate_password(value)
+        return value
+    
+class VerifyOtpGenericSerializer(serializers.Serializer):
+    """
+    Generic OTP-check serializer, usable for any purpose the shared
+    verify_otp() utility supports. Does NOT commit anything (no password
+    change, no account activation) -- it's purely "is this OTP valid".
+    """
+    email = serializers.EmailField()
+    purpose = serializers.ChoiceField(choices=["signup", "password_reset"], default="password_reset")
+    otp = serializers.CharField(min_length=4, max_length=4)
