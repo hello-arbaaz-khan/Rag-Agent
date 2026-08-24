@@ -1,4 +1,5 @@
 import axios from "axios";
+  import { authApi } from "./authApi";
 
 const API_BASE_URL = "/api/";
 
@@ -138,7 +139,46 @@ export const documentApi = {
     } catch (error) {
       throw new Error(getErrorMessage(error, "Drive sync failed."));
     }
-  }
+  },
 };
+// Response interceptor to handle expired access tokens
+apiClient.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    const originalRequest = error.config;
+    
+    // Check if error is 401 (Unauthorized) and has not been retried yet
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      originalRequest._retry = true;
+      try {
+        const tokensJson = localStorage.getItem("documind_auth_tokens");
+        if (tokensJson) {
+          const tokens = JSON.parse(tokensJson);
+          if (tokens?.refresh) {
+            // Attempt to refresh the access token
+            const data = await authApi.refreshAccessToken(tokens.refresh);
+            
+            // Save new tokens
+            const newTokens = { ...tokens, access: data.access };
+            if (data.refresh) {
+              newTokens.refresh = data.refresh;
+            }
+            localStorage.setItem("documind_auth_tokens", JSON.stringify(newTokens));
+            
+            // Retry the original request
+            originalRequest.headers.Authorization = `Bearer ${data.access}`;
+            return apiClient(originalRequest);
+          }
+        }
+      } catch (refreshError) {
+        // If refresh fails, clear auth state and redirect to login
+        localStorage.removeItem("documind_auth_tokens");
+        localStorage.removeItem("documind_auth_user");
+        window.location.href = "/login";
+      }
+    }
+    return Promise.reject(error);
+  }
+);
 
 export default apiClient;
