@@ -49,7 +49,7 @@ const ResetPasswordPage = ({ email: initialEmail, onNavigate }) => {
         </button>
       }
     >
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form onSubmit={handleSubmit} className="space-y-4" autoComplete="off">
         <AuthField
           label="Email address"
           icon={Mail}
@@ -58,6 +58,8 @@ const ResetPasswordPage = ({ email: initialEmail, onNavigate }) => {
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           placeholder="you@example.com"
+          name="reset-email"
+          autoComplete="off"
         />
         <AuthField
           label="Verification code"
@@ -69,6 +71,8 @@ const ResetPasswordPage = ({ email: initialEmail, onNavigate }) => {
           value={otp}
           onChange={(e) => setOtp(e.target.value.replace(/\D/g, ""))}
           placeholder="Enter the 4-digit code we emailed you"
+          name="reset-otp"
+          autoComplete="off"
         />
         <AuthField
           label="New password"
@@ -79,6 +83,8 @@ const ResetPasswordPage = ({ email: initialEmail, onNavigate }) => {
           value={newPassword}
           onChange={(e) => setNewPassword(e.target.value)}
           placeholder="Enter new password"
+          name="reset-new-password"
+          autoComplete="new-password"
         />
         <AuthField
           label="Confirm password"
@@ -89,6 +95,8 @@ const ResetPasswordPage = ({ email: initialEmail, onNavigate }) => {
           value={confirmPassword}
           onChange={(e) => setConfirmPassword(e.target.value)}
           placeholder="Confirm your password"
+          name="reset-confirm-password"
+          autoComplete="new-password"
         />
 
         {error ? <p className="text-sm text-red-500 dark:text-red-400">{error}</p> : null}

@@ -58,7 +58,7 @@ const LoginPage = ({ onNavigate }) => {
         </>
       }
     >
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form onSubmit={handleSubmit} className="space-y-4" autoComplete="off">
         <AuthField
           label="Email address"
           icon={Mail}
@@ -67,6 +67,8 @@ const LoginPage = ({ onNavigate }) => {
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           placeholder="you@example.com"
+          name="login-email"
+          autoComplete="off"
         />
         <AuthField
           label="Password"
@@ -76,6 +78,8 @@ const LoginPage = ({ onNavigate }) => {
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           placeholder="Enter your password"
+          name="login-password"
+          autoComplete="new-password"
         />
 
         <div className="flex items-center justify-between text-sm">

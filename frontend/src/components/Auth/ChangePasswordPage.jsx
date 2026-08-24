@@ -24,7 +24,7 @@ const ChangePasswordPage = ({ onDone }) => {
     setError("");
     setSuccess("");
 
-    if (newPassword !== confirmPassword) {
+    if (newPassword !== confirmNewPassword) {
       setError("Passwords do not match.");
       return;
     }
@@ -38,6 +38,7 @@ const ChangePasswordPage = ({ onDone }) => {
       await authApi.changePassword({
         oldPassword,
         newPassword,
+        confirmNewPassword,
         accessToken: tokens?.access
       });
       setSuccess("Password changed successfully.");
@@ -74,7 +75,7 @@ const ChangePasswordPage = ({ onDone }) => {
             Enter your current password and choose a new one.
           </p>
 
-          <form onSubmit={handleSubmit} className="mt-6 space-y-4">
+          <form onSubmit={handleSubmit} className="mt-6 space-y-4" autoComplete="off">
             <AuthField
               label="Current password"
               icon={Lock}
@@ -83,6 +84,8 @@ const ChangePasswordPage = ({ onDone }) => {
               value={oldPassword}
               onChange={(e) => setOldPassword(e.target.value)}
               placeholder="Enter current password"
+              name="change-current-password"
+              autoComplete="current-password"
             />
             <AuthField
               label="New password"
@@ -93,6 +96,8 @@ const ChangePasswordPage = ({ onDone }) => {
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
               placeholder="Enter new password"
+              name="change-new-password"
+              autoComplete="new-password"
             />
             <AuthField
               label="Confirm new password"
@@ -103,6 +108,8 @@ const ChangePasswordPage = ({ onDone }) => {
               value={confirmNewPassword}
               onChange={(e) => setConfirmNewPassword(e.target.value)}
               placeholder="Confirm new password"
+              name="change-confirm-password"
+              autoComplete="new-password"
             />
 
             {error ? <p className="text-sm text-red-500 dark:text-red-400">{error}</p> : null}

@@ -42,6 +42,13 @@ export const AuthProvider = ({ children }) => {
   const logout = useCallback(() => {
     setUser(null);
     setTokens(null);
+    try {
+      // Also clear any in-progress auth screen (e.g. a stale "verify OTP"
+      // step) so the next visit starts clean on the login screen.
+      sessionStorage.removeItem("documind_auth_screen");
+    } catch {
+      // ignore storage errors
+    }
   }, []);
 
   const value = {
