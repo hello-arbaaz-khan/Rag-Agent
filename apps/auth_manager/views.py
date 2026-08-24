@@ -1,7 +1,10 @@
 from django.contrib.auth import get_user_model
+import jwt
 from rest_framework.views import APIView
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework_simplejwt.settings import api_settings
+from rest_framework_simplejwt.exceptions import TokenError
 from apps.auth_manager.permission import IsAuthenticatedAndVerified
 from apps.shared.json_response import response_json
 from apps.auth_manager.serializers import (
@@ -13,6 +16,7 @@ from apps.auth_manager.serializers import (
     ResetPasswordSerializer,
     ChangePasswordSerializer,
     VerifyOtpGenericSerializer,
+    RefreshTokenSerializer
 )
 from apps.auth_manager.utils import (
     set_otp,
@@ -432,3 +436,50 @@ class VerifyOtpGenericView(APIView):
             data={"email": email, "purpose": purpose},
             status=200,
         )
+
+
+class RefreshTokenView(APIView):
+    """
+    Refresh access token (and rotate refresh token) using a valid refresh token.
+    """
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        serializer = RefreshTokenSerializer(data=request.data)
+        if not serializer.is_valid():
+            return response_json(
+                success=False,
+                message="Validation failed",
+                errors=serializer.errors,
+                status=400,
+            )
+
+        refresh_token = serializer.validated_data["refresh"]
+        try:
+            refresh = RefreshToken(refresh_token)
+            data = {"access": str(refresh.access_token)}
+
+            if api_settings.ROTATE_REFRESH_TOKENS:
+                if api_settings.BLACKLIST_AFTER_ROTATION:
+                    try:
+                        refresh.blacklist()
+                    except AttributeError:
+                        pass
+                refresh.set_jti()
+                refresh.set_exp()
+                refresh.set_iat()
+                data["refresh"] = str(refresh)
+
+            return response_json(
+                success=True,
+                message="Token refreshed successfully.",
+                data=data,
+                status=200,
+            )
+        except TokenError as e:
+            return response_json(
+                success=False,
+                message="Token is invalid or expired.",
+                errors={"refresh": [str(e)]},
+                status=401,
+            )
