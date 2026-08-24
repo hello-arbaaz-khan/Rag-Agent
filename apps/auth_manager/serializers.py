@@ -62,10 +62,11 @@ class ChangePasswordSerializer(serializers.Serializer):
     
 class VerifyOtpGenericSerializer(serializers.Serializer):
     """
-    Generic OTP-check serializer, usable for any purpose the shared
-    verify_otp() utility supports. Does NOT commit anything (no password
-    change, no account activation) -- it's purely "is this OTP valid".
+    Generic OTP-check serializer.
     """
     email = serializers.EmailField()
     purpose = serializers.ChoiceField(choices=["signup", "password_reset"], default="password_reset")
     otp = serializers.CharField(min_length=4, max_length=4)
+
+class RefreshTokenSerializer(serializers.Serializer):
+    refresh = serializers.CharField()

@@ -10,4 +10,5 @@ urlpatterns = [
     path("password/reset/", views.ResetPasswordView.as_view(), name="reset-password"),
     path("password/change/", views.ChangePasswordView.as_view(), name="change-password"),
     path("verify-otp/", views.VerifyOtpGenericView.as_view(), name="verify-otp-generic"),
+    path("token/refresh/", views.RefreshTokenView.as_view(), name="token-refresh"),
 ]
