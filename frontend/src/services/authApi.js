@@ -83,11 +83,15 @@ export const authApi = {
     }
   },
 
-  async changePassword({ oldPassword, newPassword, accessToken }) {
+  async changePassword({ oldPassword, newPassword, confirmNewPassword, accessToken }) {
     try {
       const { data } = await authClient.post(
         "password/change/",
-        { old_password: oldPassword, new_password: newPassword },
+        {
+          old_password: oldPassword,
+          new_password: newPassword,
+          confirm_new_password: confirmNewPassword
+        },
         { headers: { Authorization: `Bearer ${accessToken}` } }
       );
       return data;

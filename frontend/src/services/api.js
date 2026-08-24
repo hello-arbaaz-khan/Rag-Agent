@@ -7,6 +7,22 @@ const apiClient = axios.create({
   timeout: 120000
 });
 
+// Add auth token to all requests
+apiClient.interceptors.request.use((config) => {
+  const tokensJson = localStorage.getItem("documind_auth_tokens");
+  if (tokensJson) {
+    try {
+      const tokens = JSON.parse(tokensJson);
+      if (tokens?.access) {
+        config.headers.Authorization = `Bearer ${tokens.access}`;
+      }
+    } catch (e) {
+      console.error("Failed to parse auth tokens:", e);
+    }
+  }
+  return config;
+}, (error) => Promise.reject(error));
+
 const getErrorMessage = (error, fallback) => {
   const data = error?.response?.data;
   if (typeof data === "string") return data;

@@ -8,8 +8,9 @@ export default defineConfig({
     port: 3000,
     proxy: {
       "/api": {
-          target: "http://django:8000",
-        // target: http://localhost:8000",
+        target: "http://django:8000",
+
+        // target: "http://localhost:8000",
         changeOrigin: true
       }
     }

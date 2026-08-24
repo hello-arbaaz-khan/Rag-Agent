@@ -14,9 +14,15 @@ body,
 
 body {
   margin: 0;
+  background: #f8fafc;
+  color: #0f172a;
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+  transition: background-color 150ms ease, color 150ms ease;
+}
+
+html.dark body {
   background: #111827;
   color: #f9fafb;
-  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
 }
 
 button,
@@ -31,15 +37,23 @@ textarea {
 }
 
 ::-webkit-scrollbar-track {
-  background: #111827;
+  background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #374151;
+  background: #cbd5e1;
   border-radius: 999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+html.dark ::-webkit-scrollbar-thumb {
+  background: #374151;
+}
+
+html.dark ::-webkit-scrollbar-thumb:hover {
   background: #4b5563;
 }
 

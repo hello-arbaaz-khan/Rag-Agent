@@ -1,6 +1,8 @@
 import { useState } from "react";
-import { KeyRound } from "lucide-react";
-import AuthLayout from "./AuthLayout";
+import { KeyRound, Lock, Mail } from "lucide-react";
+import { SplitAuthLayout } from "./AuthLayout";
+import AuthField from "./AuthField";
+import { ShieldIllustration } from "./AuthIllustrations";
 import { authApi } from "../../services/authApi";
 
 const ResetPasswordPage = ({ email: initialEmail, onNavigate }) => {
@@ -34,82 +36,88 @@ const ResetPasswordPage = ({ email: initialEmail, onNavigate }) => {
   };
 
   return (
-    <AuthLayout title="Reset password" subtitle="Enter the code we emailed you and choose a new password">
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div>
-          <label className="mb-1 block text-sm text-white/70">Email</label>
-          <input
-            type="email"
-            required
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-white outline-none focus:border-brand-purple"
-            placeholder="you@example.com"
-          />
-        </div>
-        <div>
-          <label className="mb-1 block text-sm text-white/70">OTP code</label>
-          <input
-            type="text"
-            required
-            inputMode="numeric"
-            maxLength={4}
-            value={otp}
-            onChange={(e) => setOtp(e.target.value.replace(/\D/g, ""))}
-            className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-center text-lg tracking-[0.5em] text-white outline-none focus:border-brand-purple"
-            placeholder="0000"
-          />
-        </div>
-        <div>
-          <label className="mb-1 block text-sm text-white/70">New password</label>
-          <input
-            type="password"
-            required
-            minLength={8}
-            value={newPassword}
-            onChange={(e) => setNewPassword(e.target.value)}
-            className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-white outline-none focus:border-brand-purple"
-            placeholder="At least 8 characters"
-          />
-        </div>
-        <div>
-          <label className="mb-1 block text-sm text-white/70">Confirm new password</label>
-          <input
-            type="password"
-            required
-            minLength={8}
-            value={confirmPassword}
-            onChange={(e) => setConfirmPassword(e.target.value)}
-            className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-white outline-none focus:border-brand-purple"
-            placeholder="Repeat new password"
-          />
-        </div>
+    <SplitAuthLayout
+      title="Reset your"
+      highlight="password."
+      description="Enter your new password below to regain access to your account. Make it strong and memorable."
+      illustration={<ShieldIllustration variant="lock" />}
+      formTitle="Set new password"
+      formSubtitle="Your new password must be at least 8 characters and include a mix of letters, numbers and symbols."
+      footer={
+        <button type="button" onClick={() => onNavigate("login")} className="font-medium text-blue-600 hover:underline dark:text-blue-400">
+          ← Back to login
+        </button>
+      }
+    >
+      <form onSubmit={handleSubmit} className="space-y-4" autoComplete="off">
+        <AuthField
+          label="Email address"
+          icon={Mail}
+          type="email"
+          required
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder="you@example.com"
+          name="reset-email"
+          autoComplete="off"
+        />
+        <AuthField
+          label="Verification code"
+          icon={KeyRound}
+          type="text"
+          required
+          inputMode="numeric"
+          maxLength={4}
+          value={otp}
+          onChange={(e) => setOtp(e.target.value.replace(/\D/g, ""))}
+          placeholder="Enter the 4-digit code we emailed you"
+          name="reset-otp"
+          autoComplete="off"
+        />
+        <AuthField
+          label="New password"
+          icon={Lock}
+          type="password"
+          required
+          minLength={8}
+          value={newPassword}
+          onChange={(e) => setNewPassword(e.target.value)}
+          placeholder="Enter new password"
+          name="reset-new-password"
+          autoComplete="new-password"
+        />
+        <AuthField
+          label="Confirm password"
+          icon={Lock}
+          type="password"
+          required
+          minLength={8}
+          value={confirmPassword}
+          onChange={(e) => setConfirmPassword(e.target.value)}
+          placeholder="Confirm your password"
+          name="reset-confirm-password"
+          autoComplete="new-password"
+        />
 
-        {error && <p className="text-sm text-red-400">{error}</p>}
+        {error ? <p className="text-sm text-red-500 dark:text-red-400">{error}</p> : null}
 
         <button
           type="submit"
           disabled={loading}
-          className="flex w-full items-center justify-center gap-2 rounded-lg bg-brand-purple py-2 font-medium text-white transition hover:bg-brand-purple/90 disabled:opacity-60"
+          className="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 py-2.5 text-sm font-semibold text-white shadow-lg shadow-blue-600/25 transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-60"
         >
-          <KeyRound className="h-4 w-4" />
           {loading ? "Resetting…" : "Reset password"}
         </button>
 
-        <div className="flex items-center justify-between text-sm">
-          <button
-            type="button"
-            onClick={() => onNavigate("forgot-password")}
-            className="text-white/60 hover:underline"
-          >
-            Didn't get a code? Resend
-          </button>
-          <button type="button" onClick={() => onNavigate("login")} className="text-brand-purple hover:underline">
-            Back to login
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={() => onNavigate("forgot-password")}
+          className="w-full text-center text-sm text-slate-500 hover:underline dark:text-slate-400"
+        >
+          Didn&apos;t get a code? Resend
+        </button>
       </form>
-    </AuthLayout>
+    </SplitAuthLayout>
   );
 };
 
