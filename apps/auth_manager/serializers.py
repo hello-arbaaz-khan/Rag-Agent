@@ -69,3 +69,6 @@ class VerifyOtpGenericSerializer(serializers.Serializer):
     email = serializers.EmailField()
     purpose = serializers.ChoiceField(choices=["signup", "password_reset"], default="password_reset")
     otp = serializers.CharField(min_length=4, max_length=4)
+
+class RefreshTokenSerializer(serializers.Serializer):
+    refresh = serializers.CharField()

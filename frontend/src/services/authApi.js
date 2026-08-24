@@ -34,6 +34,15 @@ export const authApi = {
     }
   },
 
+  async refreshAccessToken(refreshToken) {
+  try {
+    const { data } = await authClient.post("token/refresh/", { refresh: refreshToken });
+    return data.data; // contains { access, refresh }
+  } catch (error) {
+    throw new Error(getErrorMessage(error, "Failed to refresh session."));
+  }
+},
+
   async verifySignupOtp({ email, otp }) {
     try {
       const { data } = await authClient.post("signup/verify-otp/", { email, otp });
