@@ -92,9 +92,7 @@ def clear_otp(user, purpose: str = "signup"):
 
 def send_otp_by_email(user, otp: str, purpose: str = "signup"):
     """Send the OTP to the user's email via configured SMTP backend."""
-    # otp = otp
-    # if settings.DEBUG:
-    #     print(f"OTP for {user.email}: {otp}")
+    
     copy = OTP_EMAIL_COPY.get(purpose, OTP_EMAIL_COPY["signup"])
     message = (
         f"Hi {user.display_name or user.username}\n\n"

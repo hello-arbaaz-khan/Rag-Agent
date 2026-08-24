@@ -19,10 +19,10 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 from decouple import config
 
 # for docker
-# DRIVE_SERVICE_BASE_URL = "http://drive_service:8001"
+DRIVE_SERVICE_BASE_URL = "http://drive_service:8001"
 
 # for local development
-DRIVE_SERVICE_BASE_URL = "http://127.0.0.1:8001"
+# DRIVE_SERVICE_BASE_URL = "http://127.0.0.1:8001"
 
 
 CELERY_BROKER_URL = config('CELERY_BROKER_URL', default='redis://localhost:6379/0')
@@ -189,3 +189,6 @@ EMAIL_USE_TLS = config('EMAIL_USE_TLS', default=True, cast=bool)
 EMAIL_HOST_USER = config('EMAIL_HOST_USER', default='')
 EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD', default='')
 DEFAULT_FROM_EMAIL = config('DEFAULT_FROM_EMAIL', default=EMAIL_HOST_USER)
+
+# --- OTP ---
+OTP_EXPIRY_SECONDS = config('OTP_EXPIRY_SECONDS', default=120, cast=int)
