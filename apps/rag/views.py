@@ -12,9 +12,9 @@ from apps.shared.json_response import response_json
 
 
 class DocumentListCreateView(APIView):
-    # permission_classes = [IsAuthenticatedAndVerified]
+    permission_classes = [IsAuthenticatedAndVerified]
     def get(self, request):
-        documents = DocumentService.list_all()
+        documents = DocumentService.list_for_user(request.user)
         serializer = UploadedDocumentSerializer(documents, many=True)
         return response_json(success=True, data=serializer.data)
 
@@ -29,6 +29,7 @@ class DocumentListCreateView(APIView):
 
         try:
             document = DocumentService.create_and_process(
+                user=request.user,
                 file=request.FILES["file"],
                 name=serializer.validated_data["name"],
                 file_type=serializer.validated_data["file_type"],
@@ -47,10 +48,10 @@ class DocumentListCreateView(APIView):
 
 
 class DocumentDetailView(APIView):
-    # permission_classes = [IsAuthenticatedAndVerified]
+    permission_classes = [IsAuthenticatedAndVerified]
     def delete(self, request, document_id):
         try:
-            DocumentService.delete(document_id)
+            DocumentService.delete(document_id, user=request.user)
             return response_json(
                 success=True,
                 message="Document deleted",
@@ -64,10 +65,10 @@ class DocumentDetailView(APIView):
             )
 
 class DocumentStatusView(APIView):
-    # permission_classes = [IsAuthenticatedAndVerified]
+    permission_classes = [IsAuthenticatedAndVerified]
     def get(self, request, document_id):
         try:
-            status_data = DocumentService.get_status(document_id)
+            status_data = DocumentService.get_status(document_id, user=request.user)
             return response_json(success=True, data=status_data)
         except UploadedDocument.DoesNotExist:
             return response_json(
@@ -77,10 +78,10 @@ class DocumentStatusView(APIView):
             )
 
 class ChatHistoryView(APIView):
-    # permission_classes = [IsAuthenticatedAndVerified]
+    permission_classes = [IsAuthenticatedAndVerified]
     def get(self,request,document_id):
         try:
-            UploadedDocument.objects.get(id=document_id)
+            UploadedDocument.objects.get(id=document_id, user=request.user)
         except UploadedDocument.DoesNotExist:
             return response_json(
                 success=False,
@@ -111,7 +112,7 @@ class ChatHistoryView(APIView):
 
 
 class QuestionAnswer(APIView):
-    # permission_classes = [IsAuthenticatedAndVerified]
+    permission_classes = [IsAuthenticatedAndVerified]
     def post(self, request):
         serializer = QuestionSerializer(data=request.data)
         if not serializer.is_valid():
@@ -123,6 +124,7 @@ class QuestionAnswer(APIView):
 
         try:
             result = QAService.answer_question(
+                user=request.user,
                 question=serializer.validated_data["question"],
                 document_id=serializer.validated_data["document_id"],
             )
@@ -149,22 +151,21 @@ class SyncDrive(APIView):
         This will fetch files from Google Drive and store them in the local database.
         """
         try:
-            result = sync_drive_documents()
+            result = sync_drive_documents(user=request.user)
             return response_json(success=True, data=result)
         except Exception as e:
             return response_json(success=False, message=str(e), status=500)
 
 
 class SearchView(APIView):
-    # permission_classes = [IsAuthenticatedAndVerified]
+    permission_classes = [IsAuthenticatedAndVerified]
     def get(self, request):
         serializer = SearchQuerySerializer(data=request.query_params)
         serializer.is_valid(raise_exception=True)
         query = serializer.validated_data["query"].strip()
 
         if not query:
-            result = SearchService.browse()
+            result = SearchService.browse(request.user)
         else:
-            result = SearchService.search(query)
-
+            result = SearchService.search(query, request.user)
         return response_json(success=True, data=result, status=status.HTTP_200_OK)

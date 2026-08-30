@@ -27,8 +27,10 @@ MIME_TO_FILE_TYPE = {
 }
 
 
-def fetch_drive_files():
-    response = requests.get(f"{DRIVE_SERVICE_BASE_URL}/files/", timeout=30)
+def fetch_drive_files(user):
+
+    headers = {"Authorization": f"Bearer {get_jwt_for(user)}"}  # depends on Phase II's token-passing design — placeholder until then
+    response = requests.get(f"{DRIVE_SERVICE_BASE_URL}/files/", headers=headers, timeout=30)
     response.raise_for_status()
     data = response.json()
     return data.get('files', [])
@@ -94,10 +96,9 @@ def process_pending_drive_file(drive_doc_id: int):
         drive_doc.save()
 
 
-def sync_drive_documents():
+def sync_drive_documents(user):
     """Sync drive documents to local database. Clean up files deleted from Drive."""
-    files = fetch_drive_files()
-    
+    files = fetch_drive_files(user)
     active_drive_ids = {f['id'] for f in files if not f.get('trashed', False)}
     created_count = 0
     updated_count = 0
@@ -113,6 +114,7 @@ def sync_drive_documents():
 
         obj, created = DriveDocument.objects.get_or_create(
             drive_file_id=f['id'],
+            user=user,
             defaults={
                 "name": f['name'],
                 "mime_type": f['mime_type'],
@@ -143,8 +145,7 @@ def sync_drive_documents():
 
     # Step 2: Remove files that are no longer in Drive    
     # (permanently deleted or moved to trash)
-    orphaned = DriveDocument.objects.exclude(drive_file_id__in=active_drive_ids)
-    
+    orphaned = DriveDocument.objects.filter(user=user).exclude(drive_file_id__in=active_drive_ids)    
     for drive_doc in orphaned:
         logger.info("[drive] File removed from Drive: %s", drive_doc.name)
         drive_doc.delete()
