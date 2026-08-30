@@ -44,8 +44,8 @@ def fetch_drive_files_page(page_size=50, page_token=None):
     return response.json()
 
 
-def process_pending_drive_file(drive_doc_id: int):
-    drive_doc = DriveDocument.objects.get(id=drive_doc_id)
+def process_pending_drive_file(drive_doc_id: int, user):
+    drive_doc = DriveDocument.objects.get(id=drive_doc_id, user=user)
 
     # Guard: skip if already picked up
     if drive_doc.sync_status not in ("pending", "failed"):
@@ -79,6 +79,7 @@ def process_pending_drive_file(drive_doc_id: int):
             raise ValueError(f"Unsupported file type: {drive_doc.mime_type}")
 
         uploaded_doc = DocumentService.create_and_process(
+            user=user,
             file=django_file,
             name=drive_doc.name,
             file_type=file_type,
@@ -154,7 +155,7 @@ def sync_drive_documents(user):
     # Step 3: Pending files processing
     for doc_id in pending_ids:
         try:
-            process_pending_drive_file(doc_id)
+            process_pending_drive_file(doc_id, user)
         except Exception as e:
             logger.error("[drive] Error processing pending file %s: %s", doc_id, e)
 
@@ -181,14 +182,14 @@ def _serialize_drive_doc(doc):
 
 SYNC_STATUS_ORDER = {"indexed": 0, "processing": 1, "pending": 2, "failed": 3}
 
-def browse_files(page_token=None, page_size=50):
+def browse_files(user, page_token=None, page_size=50):
     """
     Page of files for the search/browse UI.
     Removed/deleted files are automatically excluded because
     sync_drive_documents() deletes them from local DB.
     """
     if page_token is None:
-        local_files = list(DriveDocument.objects.all())
+        local_files = list(DriveDocument.objects.filter(user=user))
         local_files.sort(key=lambda d: (SYNC_STATUS_ORDER.get(d.sync_status, 9), d.name.lower()))
         total_local = len(local_files)
 
@@ -216,6 +217,7 @@ def browse_files(page_token=None, page_size=50):
                     "mime_type": f["mime_type"],
                     "drive_modified_at": drive_modified,
                     "sync_status": "pending",
+                    "user": user,
                 },
             )
             extra_docs.append(obj)
