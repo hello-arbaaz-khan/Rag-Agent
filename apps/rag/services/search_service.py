@@ -89,11 +89,11 @@ def _serialize_drive_doc(doc):
 
 class SearchService:
     @staticmethod
-    def browse():
+    def browse(user):
         """No query — return local rows plus a live Drive metadata fetch."""
         from apps.rag.services.drive_service import browse_files
 
-        data = browse_files(page_size=50)
+        data = browse_files(page_size=50, user=user)
         results = data.get("files", [])
 
         return {
@@ -104,7 +104,7 @@ class SearchService:
         }
 
     @staticmethod
-    def search(query):
+    def search(query, user):
         intent = parse_query_intent(query)
         topic = intent["topic"]
         date_filter = intent["date_filter"]
@@ -112,6 +112,7 @@ class SearchService:
         all_docs = list(
             DriveDocument.objects.select_related("document")
             .annotate(annotated_chunks=Count("document__chunks"))
+            .filter(user=user)
             .all()
         )
 
@@ -121,7 +122,7 @@ class SearchService:
         scored = []
 
         if topic:
-            content_matches = search_all_documents(topic, top_k=1000)
+            content_matches = search_all_documents(topic, top_k=1000, user=user)
             content_scores = {m["document_id"]: m["relevance_score"] for m in content_matches}
             content_snippets = {m["document_id"]: m["matched_chunk_text"] for m in content_matches}
 

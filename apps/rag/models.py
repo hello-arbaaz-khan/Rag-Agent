@@ -1,6 +1,6 @@
 from django.db import models
 from pgvector.django import VectorField
-import hashlib
+from django.conf import settings
 
 
 class UploadedDocument(models.Model):
@@ -10,12 +10,12 @@ class UploadedDocument(models.Model):
         ("docx", "DOCX"),
         ("txt", "TXT")
     ]
-
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="documents")
     name = models.CharField(max_length=255, verbose_name="File name")
     file = models.FileField(upload_to="uploads/documents", verbose_name="Uploaded file")
     file_type = models.CharField(max_length=10, choices=FILE_TYPES_CHOICES, verbose_name="File type")
     file_size = models.BigIntegerField(default=0, verbose_name="File size")
-    file_hash = models.CharField(max_length=64, unique=True, db_index=True, null=True, blank=True, verbose_name="File hash")
+    file_hash = models.CharField(max_length=64, db_index=True, null=True, blank=True, verbose_name="File hash")
     is_processed = models.BooleanField(default=False, verbose_name="Is processed")
     processing_started_at = models.DateTimeField(null=True, blank=True, verbose_name="Processing started at")
     processing_error = models.TextField(default="", null=True, blank=True, verbose_name="Error processing file")
@@ -23,6 +23,7 @@ class UploadedDocument(models.Model):
     updated_at = models.DateTimeField(auto_now_add=True, verbose_name="Updated at")
 
     class Meta:
+        unique_together = ("user", "file_hash")
         verbose_name = "Uploaded document"
         verbose_name_plural = "Uploaded documents"
         ordering = ['-created_at']
@@ -73,7 +74,8 @@ class ChatHistory(models.Model):
 
 
 class DriveDocument(models.Model):
-    drive_file_id = models.CharField(max_length=255, unique=True)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="drive_documents")
+    drive_file_id = models.CharField(max_length=255)
     name = models.CharField(max_length=500)
     mime_type = models.CharField(max_length=100)
     drive_modified_at = models.DateTimeField()
@@ -100,6 +102,9 @@ class DriveDocument(models.Model):
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ("user", "drive_file_id")
 
     def __str__(self):
         return f"{self.name} ({self.sync_status})"
