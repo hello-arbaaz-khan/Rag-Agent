@@ -89,11 +89,11 @@ def _serialize_drive_doc(doc):
 
 class SearchService:
     @staticmethod
-    def browse(user):
+    def browse(user, auth_header):
         """No query — return local rows plus a live Drive metadata fetch."""
         from apps.rag.services.drive_service import browse_files
 
-        data = browse_files(page_size=50, user=user)
+        data = browse_files(page_size=50, user=user, auth_header=auth_header)
         results = data.get("files", [])
 
         return {
