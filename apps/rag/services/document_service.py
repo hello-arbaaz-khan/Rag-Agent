@@ -23,14 +23,15 @@ class DocumentService:
         return file_hash
 
     @staticmethod
-    def create_and_process(file, name, file_type):
+    def create_and_process(file, name, file_type, user):
         file_hash = DocumentService._generate_file_hash(file)
 
-        existing = UploadedDocument.objects.filter(file_hash=file_hash).first()
+        existing = UploadedDocument.objects.filter(user=user, file_hash=file_hash).first()
         if existing:
             return existing
 
         document = UploadedDocument.objects.create(
+            user=user,
             name=name,
             file=file,
             file_type=file_type,
@@ -42,9 +43,9 @@ class DocumentService:
         return document
 
     @staticmethod
-    def delete(document_id):
+    def delete(document_id, user):
         with transaction.atomic():
-            document = UploadedDocument.objects.select_for_update().get(id=document_id)
+            document = UploadedDocument.objects.select_for_update().get(id=document_id, user=user)
 
             DocumemtsChunks.objects.filter(document=document).delete()
             document.delete()
@@ -57,12 +58,12 @@ class DocumentService:
         return document
 
     @staticmethod
-    def list_all():
-        return UploadedDocument.objects.all().order_by("-created_at")
+    def list_for_user(user):
+        return UploadedDocument.objects.filter(user=user).order_by("-created_at")
 
     @staticmethod
-    def get_status(document_id):
-        document = UploadedDocument.objects.get(id=document_id)
+    def get_status(document_id, user):
+        document = UploadedDocument.objects.get(id=document_id, user=user)
         return {
             "id": document.id,
             "name": document.name,

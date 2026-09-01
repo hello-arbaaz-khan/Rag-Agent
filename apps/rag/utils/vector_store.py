@@ -53,11 +53,12 @@ def store_document_chunks(document_id):
     return len(texts)
 
 
-def search_similar_chunks(question, document_id, top_k=3):
+def search_similar_chunks(question, document_id, user, top_k=3):
     """ Finding similar chunks of a question within one document """
     question_embedding = create_embeddings(question)
 
     results = DocumemtsChunks.objects.filter(
+        document__user=user,
         document_id=document_id,
         embedding__isnull=False
     ).annotate(
@@ -77,11 +78,12 @@ def search_similar_chunks(question, document_id, top_k=3):
     return similar_chunks
 
 
-def search_all_documents(query, top_k=10):
+def search_all_documents(query, user, top_k=10):
     """ Semantic search across ALL indexed documents """
     query_embedding = create_embeddings(query)
 
     results = DocumemtsChunks.objects.select_related('document').filter(
+        document__user=user,
         embedding__isnull=False
     ).annotate(
         distance=CosineDistance('embedding', query_embedding)

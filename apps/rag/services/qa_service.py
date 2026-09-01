@@ -11,14 +11,14 @@ class QAService:
     """Business logic for answering questions against a document."""
 
     @staticmethod
-    def answer_question(question, document_id):
-        document = UploadedDocument.objects.get(id=document_id)
+    def answer_question(question, document_id, user):
+        document = UploadedDocument.objects.get(id=document_id, user=user)
 
         if not document.is_processed:
             raise ValueError("Document is still being processed")
 
         history = list(
-            ChatHistory.objects.filter(document_id=document_id)
+            ChatHistory.objects.filter(document_id=document_id, document__user=user)
             .order_by('created_at')
             .values('question', 'answer')
         )

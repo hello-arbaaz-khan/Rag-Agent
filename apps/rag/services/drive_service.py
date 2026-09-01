@@ -225,6 +225,7 @@ def browse_files(user, auth_header, page_token=None, page_size=50):
                     "mime_type": f["mime_type"],
                     "drive_modified_at": drive_modified,
                     "sync_status": "pending",
+                    "user": user,
                 },
             )
             extra_docs.append(obj)
