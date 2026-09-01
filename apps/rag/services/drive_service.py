@@ -86,11 +86,10 @@ def process_pending_drive_file(drive_doc_id: int, auth_header: str):
             raise ValueError(f"Unsupported file type: {drive_doc.mime_type}")
 
         uploaded_doc = DocumentService.create_and_process(
-            user=user,
+            user=drive_doc.user,
             file=django_file,
             name=drive_doc.name,
             file_type=file_type,
-            user=drive_doc.user,
         )
 
         drive_doc.document = uploaded_doc
