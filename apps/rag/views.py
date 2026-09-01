@@ -101,7 +101,7 @@ class ChatHistoryView(APIView):
 
     def delete(self, request, document_id):
         try:
-            UploadedDocument.objects.get(id=document_id)
+            UploadedDocument.objects.get(id=document_id, user=request.user)
         except UploadedDocument.DoesNotExist:
             return response_json(
                 success=False,
@@ -150,7 +150,7 @@ class QuestionAnswer(APIView):
             )
 
 class SyncDrive(APIView):
-    # permission_classes = [IsAuthenticatedAndVerified]
+    permission_classes = [IsAuthenticatedAndVerified]
     def post(self, request):
         """
         Sync Google Drive files with local database.
