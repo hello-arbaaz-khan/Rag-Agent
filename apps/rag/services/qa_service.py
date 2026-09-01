@@ -11,7 +11,7 @@ class QAService:
     """Business logic for answering questions against a document."""
 
     @staticmethod
-    def answer_question(question, document_id, user):
+    def answer_question(user, question, document_id):
         document = UploadedDocument.objects.get(id=document_id, user=user)
 
         if not document.is_processed:
@@ -23,11 +23,11 @@ class QAService:
             .values('question', 'answer')
         )
 
-        similar_chunks = search_similar_chunks(question, document_id, top_k=3)
+        similar_chunks = search_similar_chunks(question, document_id, user, top_k=3)
 
         if not similar_chunks:
             answer_text = "Answer not found in document"
-            QAService._safe_save_history(document_id, question, answer_text)
+            QAService._safe_save_history(user, document_id, question, answer_text)
             return {
                 "question": question,
                 "answer": answer_text,
@@ -41,7 +41,7 @@ class QAService:
         answer = generate_answer(prompt)
         confidence = calculate_confidence(similar_chunks)
 
-        QAService._safe_save_history(document_id, question, answer)
+        QAService._safe_save_history(user, document_id, question, answer)
 
         return {
             "question": question,
@@ -52,11 +52,11 @@ class QAService:
         }
 
     @staticmethod
-    def _safe_save_history(document_id, question, answer):
+    def _safe_save_history(user, document_id, question, answer):
         """if will delete document when generating answer then it will not save history"""
         try:
             with transaction.atomic():
-                document = UploadedDocument.objects.filter(id=document_id).first()
+                document = UploadedDocument.objects.filter(user=user, id=document_id).first()
                 if not document:
                     raise ValueError("Document was deleted while generating answer")
 
