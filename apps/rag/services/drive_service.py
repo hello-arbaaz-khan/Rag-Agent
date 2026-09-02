@@ -32,7 +32,7 @@ def fetch_drive_files(user, auth_header):
         raise ValueError("Missing authorization header — cannot reach drive_service.")
 
     headers = {"Authorization": auth_header}
-    response = requests.get(f"{DRIVE_SERVICE_BASE_URL}/files/", headers=headers, timeout=30)
+    response = requests.get(f"{DRIVE_SERVICE_BASE_URL}/files", headers=headers, timeout=30)
     response.raise_for_status()
     data = response.json()
     return data.get('files', [])
@@ -71,7 +71,7 @@ def process_pending_drive_file(drive_doc_id: int, auth_header: str):
     
     try:
         response = requests.get(
-            f"{DRIVE_SERVICE_BASE_URL}/files/{drive_doc.drive_file_id}/download",
+            f"{DRIVE_SERVICE_BASE_URL}/files{drive_doc.drive_file_id}/download",
             params={"name": drive_doc.name, "mime_type": drive_doc.mime_type},
             headers={"Authorization": auth_header},
             timeout=120,

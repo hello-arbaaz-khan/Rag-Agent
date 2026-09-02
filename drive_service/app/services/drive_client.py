@@ -43,7 +43,6 @@ def get_credentials(db: Session, user_id: int) -> Credentials:
         token_uri="https://oauth2.googleapis.com/token",
         client_id=settings.google_client_id,
         client_secret=settings.google_client_secret,
-        scopes=account.scopes.split(" "),
     )
 
     expiry = account.token_expiry
