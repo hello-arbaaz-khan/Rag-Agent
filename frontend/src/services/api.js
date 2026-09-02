@@ -141,6 +141,37 @@ export const documentApi = {
     }
   },
 };
+
+export const driveApi = {
+  /** Returns { auth_url } — open this in a popup to start the Google OAuth flow. */
+  async connect() {
+    try {
+      const { data } = await apiClient.get("connect-drive/");
+      return data.data ?? data;
+    } catch (error) {
+      throw new Error(getErrorMessage(error, "Unable to start Google Drive connection."));
+    }
+  },
+
+  /** Returns { connected, google_email?, connected_at? }. */
+  async status() {
+    try {
+      const { data } = await apiClient.get("drive-status/");
+      return data.data ?? data;
+    } catch (error) {
+      throw new Error(getErrorMessage(error, "Unable to check Google Drive status."));
+    }
+  },
+
+  async disconnect() {
+    try {
+      const { data } = await apiClient.delete("disconnect-drive/");
+      return data.data ?? data;
+    } catch (error) {
+      throw new Error(getErrorMessage(error, "Unable to disconnect Google Drive."));
+    }
+  },
+};
 // Response interceptor to handle expired access tokens
 apiClient.interceptors.response.use(
   (response) => response,
