@@ -1,7 +1,10 @@
 import os
 os.environ["OAUTHLIB_RELAX_TOKEN_SCOPE"] = "1"
 
+from urllib.parse import urlencode
+
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import RedirectResponse
 from google_auth_oauthlib.flow import Flow
 from googleapiclient.discovery import build
 from pydantic import BaseModel
@@ -14,7 +17,7 @@ logger = logging.getLogger(__name__)
 from app.config import settings
 from app.db.session import get_db
 from app.models.google_drive_account import GoogleDriveAccount
-from app.core.crypto import encrypt_token
+from app.core.crypto import encrypt_token, decrypt_token
 from app.core.state import sign_state, store_state, verify_and_consume_state
 from app.core.auth import get_current_user_id
 
@@ -24,6 +27,11 @@ router = APIRouter()
 class DriveConnectResponse(BaseModel):
     connected: bool
     google_email: str
+
+
+def _frontend_redirect(**params) -> RedirectResponse:
+    url = f"{settings.frontend_base_url}/?{urlencode(params)}"
+    return RedirectResponse(url=url, status_code=302)
 
 
 def _build_flow() -> Flow:
@@ -57,12 +65,19 @@ def connect(user_id: int = Depends(get_current_user_id)):
     return {"auth_url": auth_url}
 
 
-@router.get("/callback", response_model=DriveConnectResponse)
-def callback(code: str, state: str, db: Session = Depends(get_db)):
+@router.get("/callback")
+def callback(code: str | None = None, state: str | None = None, error: str | None = None, db: Session = Depends(get_db)):
+    # User denied access, or Google sent back an error instead of a code
+    if error:
+        return _frontend_redirect(drive_status="error", message=error)
+
+    if not code or not state:
+        return _frontend_redirect(drive_status="error", message="Missing code or state from Google.")
+
     try:
         data = verify_and_consume_state(state)
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        return _frontend_redirect(drive_status="error", message=str(e))
 
     user_id = data["user_id"]
     code_verifier = data["code_verifier"]
@@ -73,12 +88,17 @@ def callback(code: str, state: str, db: Session = Depends(get_db)):
     try:
         flow.fetch_token(code=code)
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Failed to exchange code: {e}")
+        logger.warning("Failed to exchange code for user_id=%s: %s", user_id, e)
+        return _frontend_redirect(drive_status="error", message="Failed to complete Google sign-in.")
 
     creds = flow.credentials
 
-    oauth2_service = build("oauth2", "v2", credentials=creds, cache_discovery=False)
-    userinfo = oauth2_service.userinfo().get().execute()
+    try:
+        oauth2_service = build("oauth2", "v2", credentials=creds, cache_discovery=False)
+        userinfo = oauth2_service.userinfo().get().execute()
+    except Exception as e:
+        logger.warning("Failed to fetch userinfo for user_id=%s: %s", user_id, e)
+        return _frontend_redirect(drive_status="error", message="Failed to read Google account info.")
 
     account = db.query(GoogleDriveAccount).filter_by(user_id=user_id).first()
 
@@ -96,7 +116,7 @@ def callback(code: str, state: str, db: Session = Depends(get_db)):
 
     db.commit()
 
-    return DriveConnectResponse(connected=True, google_email=account.google_email)
+    return _frontend_redirect(drive_status="connected", email=account.google_email)
 
 @router.delete("/disconnect")
 def disconnect(user_id: int = Depends(get_current_user_id), db: Session = Depends(get_db)):
