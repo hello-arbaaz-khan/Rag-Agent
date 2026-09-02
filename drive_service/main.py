@@ -65,7 +65,7 @@ def get_files(
     )
 
 
-@app.get("/files/{file_id}/download", response_model=DriveFileDownloadResponse)
+@app.get("/files{file_id}/download", response_model=DriveFileDownloadResponse)
 def get_file_download(
     file_id: str,
     name: str,
