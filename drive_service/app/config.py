@@ -22,5 +22,6 @@ class Settings(BaseSettings):
     state_signing_secret: str
     redis_url: str = "redis://redis:6379/0"
     drive_service_base_url: str = "http://localhost:8001"
+    frontend_base_url: str
 
 settings = Settings()
