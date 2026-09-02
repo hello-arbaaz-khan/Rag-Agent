@@ -1,6 +1,7 @@
 import { ChevronsLeft, ChevronsRight, Clock, FileText, LogOut, PenSquare, Search, Settings, Sparkles } from "lucide-react";
 import { useAppContext } from "../../context/AppContext";
 import { useAuth } from "../../context/AuthContext";
+import DriveStatusBadge from "./DriveStatusBadge";
 
 const NAV_ITEMS = [
   { id: "chat", label: "Chat History", icon: Clock },
@@ -218,7 +219,11 @@ const Sidebar = ({
         </div>
       </div>
 
-      <div className="mt-3 flex items-center justify-between border-t border-slate-200 pt-3 dark:border-white/5">
+      <div className="mt-3 border-t border-slate-200 pt-2 dark:border-white/5">
+        <DriveStatusBadge onNavigate={onNavigate} />
+      </div>
+
+      <div className="flex items-center justify-between pt-3">
         <div className="flex min-w-0 items-center gap-2.5">
           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-indigo-500 text-sm font-bold text-white">
             {(user?.display_name || user?.username || user?.email || "A").charAt(0).toUpperCase()}

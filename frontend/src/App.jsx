@@ -8,6 +8,7 @@ import UploadModal from "./components/Upload/UploadModal";
 import AdvancedSearch from "./components/Search/AdvancedSearch";
 import DocumentsView from "./components/Documents/DocumentsView";
 import ChangePasswordPage from "./components/Auth/ChangePasswordPage";
+import DriveConnection from "./components/Drive/DriveConnection";
 import { usePolling } from "./hooks/usePolling";
 import { useDriveAutoSync } from "./hooks/useDriveAutoSync";
 import { useAppContext } from "./context/AppContext";
@@ -44,7 +45,8 @@ const App = () => {
                 <DocumentsView onUploadClick={() => setUploadOpen(true)} onOpenInChat={() => setView("chat")} />
               ) : null}
               {view === "settings" ? (
-                <div className="flex min-h-full items-center justify-center p-6">
+                <div className="flex min-h-full flex-col items-center gap-6 p-6">
+                  <DriveConnection />
                   <ChangePasswordPage onDone={() => setView("chat")} />
                 </div>
               ) : null}
