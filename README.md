@@ -1,972 +1,1042 @@
-# DocuMind - RAG Backend
+# DocuMind - RAG-Based Document AI Assistant
+
+DocuMind is a full-stack document-based AI assistant that enables you to upload documents, search through them semantically, and ask intelligent questions about their content using Retrieval-Augmented Generation (RAG).
+
+The core idea is simple but powerful: instead of sending entire documents to an LLM, DocuMind first retrieves the most relevant document chunks and uses those as context to generate accurate, grounded answers. This approach improves accuracy, reduces token usage, and provides transparency through source citations.
+
+---
 
 ## Table of Contents
 
-- [Overview](#overview)
+- [Key Features](#key-features)
+- [How It Works](#how-it-works)
+- [Tech Stack](#tech-stack)
+- [Architecture](#architecture)
 - [Project Structure](#project-structure)
-- [Technology Stack](#technology-stack)
-- [Installation & Setup](#installation--setup)
-- [Configuration](#configuration)
-- [API Reference](#api-reference)
-- [Database Models](#database-models)
-- [Services Layer](#services-layer)
-- [Background Tasks](#background-tasks)
-- [Utilities](#utilities)
-- [Development Guidelines](#development-guidelines)
-- [Authentication](#authentication)
+- [Prerequisites](#prerequisites)
+- [Quick Start](#quick-start)
+- [Running Locally](#running-locally)
+- [Running with Docker](#running-with-docker)
+- [Environment Variables](#environment-variables)
+- [Database Setup](#database-setup)
+- [API Endpoints](#api-endpoints)
+- [Testing](#testing)
+- [Troubleshooting](#troubleshooting)
+- [Roadmap](#roadmap)
+- [Why I Built This](#why-i-built-this)
+- [Author](#author)
 
 ---
 
-## Overview
+## Key Features
 
-DocuMind is a **RAG (Retrieval-Augmented Generation)** based document question-answering system built with Django and PostgreSQL. It allows users to authenticate, upload documents (PDF, DOC, DOCX, TXT), process them into chunks, generate embeddings using pgvector, and enable natural language questioning against document content.
+### Document Management
+- Upload and process multiple document formats (PDF, DOCX, DOC, TXT)
+- Automatic document processing in the background (asynchronous)
+- Track document processing status and errors
+- View document information and chunk statistics
+- Support for large files with progress tracking
 
-### Key Features
+### Smart Search and Retrieval
+- Semantic search using embeddings (not keyword-based)
+- Search across all indexed documents
+- Advanced filtering by file type, sync status, and date range
+- Relevance scoring with matched text snippets
+- Export search results as JSON
+- Search history persistence
 
-- **User Authentication** - JWT-based authentication with Django Custom User model
-- **Document Upload & Management** - Upload, list, and delete documents
-- **Semantic Search** - Vector-based search using PostgreSQL pgvector extension
-- **Q&A System** - Ask questions and get AI-powered answers from documents using Groq LLM
-- **Chat History** - Maintain conversation history per document
-- **Google Drive Integration** - Sync documents from Google Drive
-- **Async Processing** - Background document processing with Celery & Redis
+### Intelligent Chat
+- Ask natural language questions about documents
+- Get context-aware answers with source citations
+- View which document chunks were used to generate answers
+- Maintain full chat history per document
+- Support for multi-turn conversations
+
+### Google Drive Integration
+- Connect Google Drive accounts securely
+- Auto-sync documents from Google Drive
+- Automatic periodic sync checking for changes
+- Track sync status (pending, processing, indexed, failed)
+- Sync error reporting
+
+### Authentication and Security
+- User signup and login
+- Email OTP verification for account security
+- Secure password reset and change functionality
+- JWT-based authentication with refresh tokens
+- Encrypted Google Drive tokens
+- User-scoped document access
 
 ---
 
-## Project Structure
+## How It Works
+
+### Core RAG Pipeline
+
+The system follows a well-defined retrieval-augmented generation pipeline that ensures accurate, context-aware responses:
+
+```
+Document Upload
+    |
+    v
+Text Extraction (PDF, DOCX, DOC, TXT)
+    |
+    v
+Text Chunking (overlapping chunks)
+    |
+    v
+Embedding Generation (all-MiniLM-L6-v2)
+    |
+    v
+PostgreSQL + pgvector Storage
+    |
+    v
+User Query
+    |
+    v
+Query Embedding
+    |
+    v
+Cosine Similarity Search
+    |
+    v
+Retrieve Top-K Relevant Chunks
+    |
+    v
+Pass to Groq LLM with Context
+    |
+    v
+Generate Answer with Citations
+```
+
+### Processing Flow
+
+When a document is uploaded to the system:
+
+1. Upload: File is saved to the system
+2. Queue: A Celery task is created for asynchronous processing
+3. Extract: Text is extracted using PyMuPDF, python-docx, or plain text reading
+4. Chunk: Text is split into overlapping chunks to preserve context
+5. Embed: Each chunk is converted to a 384-dimensional vector using Sentence Transformers
+6. Store: Chunks, metadata, and embeddings are stored in PostgreSQL with pgvector
+7. Ready: Document is marked as processed and ready for queries
+
+### Query Resolution
+
+When a user asks a question about a document:
+
+1. Embed Query: Question is converted to a vector
+2. Search: pgvector finds most similar chunks using cosine distance
+3. Retrieve: Top-K chunks are fetched with metadata (page, document, relevance)
+4. Context: Chunks are formatted as context for the LLM
+5. Generate: Groq LLM generates answer based on context
+6. Return: Answer is returned with source references
+
+---
+
+## Tech Stack
+
+### Backend
+- Language: Python 3.12
+- Framework: Django 6.0.6 with Django REST Framework 3.17.1
+- Database: PostgreSQL 16 with pgvector extension
+- Vector Search: pgvector with cosine similarity
+- Background Jobs: Celery 5.4.0 with Redis 7 message broker
+- LLM: Groq API for fast inference
+- Embeddings: Sentence Transformers (all-MiniLM-L6-v2)
+- Document Processing: PyMuPDF, python-docx, plain text
+- Authentication: JWT with djangorestframework-simplejwt
+- API: RESTful API with CORS support
+
+### Frontend
+- Language: JavaScript (ES6+)
+- Framework: React 18.3.1
+- Build Tool: Vite 6.0.5
+- Styling: Tailwind CSS 3.4.17
+- HTTP Client: Axios 1.7.9
+- Icons: Lucide React
+- Package Manager: npm
+
+### Google Drive Integration
+- Service: FastAPI microservice (drive_service)
+- Framework: FastAPI with Uvicorn
+- Google Libraries: google-auth, google-auth-oauthlib, google-api-python-client
+- Security: JWT tokens, encrypted credentials
+
+### Infrastructure
+- Containerization: Docker
+- Orchestration: Docker Compose
+- Web Server: Gunicorn/uWSGI for production
+- Reverse Proxy: Nginx for production
+
+---
 
 ## Architecture
 
-![DocuMind Architecture](docs/architecture.svg)
+### System Components
 
-The system follows a request-response flow split into two main pipelines:
+The system is built as a set of interconnected services that work together to provide a complete document AI solution:
 
-**Upload & Indexing Pipeline:**
+```
+Frontend Layer (React)
+    |
+    |-- Port 3000 (Vite dev server)
+    |
+    v
+API Gateway (Django REST)
+    |
+    |-- Port 8000
+    |
+    +-- Authentication Module
+    |       User signup, login, JWT tokens, OTP verification
+    |
+    +-- Document Management
+    |       Upload, storage, processing status tracking
+    |
+    +-- RAG Engine
+    |       Vector search, chunk retrieval, similarity scoring
+    |
+    +-- Chat Management
+    |       Conversation storage, response generation, citations
+    |
+    v
+Data Layer
+    |
+    +-- PostgreSQL (Port 5432)
+    |   Documents, chunks, embeddings, users, chat history
+    |
+    +-- Redis (Port 6379)
+    |   Message queue, cache, session storage
+    |
+    v
+Processing Layer
+    |
+    +-- Celery Workers
+    |   Document processing, embedding generation
+    |
+    +-- Drive Service (FastAPI, Port 8001)
+    |   Google OAuth, file syncing, token management
 
-1. User authenticates and uploads a document via the React frontend
-2. Django API saves metadata to PostgreSQL and queues an async Celery task
-3. Celery worker (via Redis broker) parses the file, splits it into chunks, and generates embeddings using sentence-transformers
-4. Chunks + embeddings are stored in PostgreSQL with pgvector extension (per-document and global collections)
+External Services
+    |
+    +-- Groq LLM API
+    |   Language model inference
+    |
+    +-- Google Drive API
+    |   File access, metadata, sync
+```
 
-**Question & Answer Pipeline:**
+### Backend Modules
 
-1. User submits a question tied to a document (or global search)
-2. The question is embedded and matched against PostgreSQL using pgvector cosine similarity
-3. Top-k relevant chunks are retrieved and passed as context to the Groq LLM along with conversation history
-4. The LLM generates an answer, along with a confidence score based on retrieval similarity
+The backend is organized into logical modules, each handling specific responsibilities:
+
+#### apps/auth_manager - Authentication and User Management
+Handles all user-related functionality including account creation, verification, and security:
+- User signup with email verification
+- Login with JWT token generation
+- OTP-based email verification for account security
+- Password reset and change flows
+- JWT access token and refresh token handling
+- User profile management and password validation
+
+#### apps/rag - Document Processing and RAG
+Core module responsible for document management and intelligent querying:
+- models.py: Data models for documents, chunks, chat history, and Drive integration
+- views.py: REST API endpoints for documents, chat, and search operations
+- serializers.py: Request and response data serialization
+- tasks.py: Celery background tasks for document processing and embedding generation
+- utils/:
+  - vector_store.py: Similarity search and chunk retrieval logic
+  - rag_engine.py: Context formatting and LLM integration
+  - pdf_processor.py: PDF text extraction
+  - query_intent.py: Query analysis and potential rewriting
+
+#### core - Django Project Configuration
+Central configuration for the Django project:
+- settings.py: Database, cache, authentication, and CORS configuration
+- urls.py: URL routing to all applications
+- celery.py: Celery configuration for background tasks
+- wsgi.py and asgi.py: Application server entry points
+
+#### drive_service - Google Drive Microservice
+Separate FastAPI service handling Google Drive operations:
+- OAuth 2.0 token management
+- File sync scheduling and execution
+- Encrypted credential storage
+- Independent from main Django application for scalability
+
+---
 
 ## Project Structure
 
 ```
-documind/                        # Project root
-├── core/                        # Django project configuration
-│   ├── __init__.py
-│   ├── asgi.py                 # ASGI config for async support
-│   ├── celery.py               # Celery configuration
-│   ├── settings.py             # Django settings
-│   ├── urls.py                 # Root URL routing
-│   └── wsgi.py                 # WSGI config for deployment
-│
-├── apps/                        # Applications directory
-│   ├── rag/                    # Main RAG application
-│   │   ├── models.py           # Database models (UploadedDocument, ChatHistory, etc.)
-│   │   ├── views.py            # API endpoints (APIView classes)
-│   │   ├── urls.py             # URL routing for rag app
-│   │   ├── serializers.py      # DRF serializers for request/response validation
-│   │   ├── tasks.py            # Celery background tasks
-│   │   ├── admin.py            # Django admin configuration
-│   │   ├── services/           # Business logic layer
-│   │   │   ├── __init__.py
-│   │   │   ├── document_service.py    # Document CRUD operations
-│   │   │   ├── qa_service.py          # Question answering logic
-│   │   │   ├── search_service.py      # Search functionality
-│   │   │   └── drive_service.py       # Google Drive integration
-│   │   ├── utils/              # Utility modules
-│   │   │   ├── __init__.py
-│   │   │   ├── vector_store.py        # pgvector operations
-│   │   │   ├── rag_engine.py          # LLM interaction & prompt building
-│   │   │   ├── query_intent.py        # Query intent analysis
-│   │   │   └── pdf_processor.py       # Document parsing utilities
-│   │   ├── migrations/         # Database migrations
-│   │   └── management/         # Custom Django management commands
-│   │
-│   ├── auth_manager/           # Authentication & Authorization
-│   │   ├── models.py           # Custom User model
-│   │   ├── views.py            # Authentication API endpoints
-│   │   ├── serializers.py      # Auth serializers
-│   │   ├── permission.py       # Custom permission classes
-│   │   ├── urls.py             # Auth URL routing
-│   │   └── utils.py            # Auth utilities
-│   │
-│   └── shared/                 # Shared utilities
-│       └── json_response.py    # Unified JSON response format
-│
-├── drive_service/              # Standalone Google Drive service
-│   ├── main.py                 # FastAPI application
-│   ├── auth.py                 # Google OAuth authentication
-│   ├── drive_client.py         # Google Drive API client
-│   ├── config.py               # Configuration settings
-│   └── schemas.py              # Pydantic schemas
-│
-├── frontend/                   # Frontend application (React/Vite)
-├── docs/                       # Documentation and diagrams
-├── manage.py                   # Django management script
-├── requirements.txt            # Python dependencies
-├── .env.example                # Environment variables template
-└── README.md                   # This file
+Rag-Agent/
+|
+|-- apps/
+|   |-- auth_manager/
+|   |   |-- models.py              User model with OTP fields
+|   |   |-- views.py               Authentication endpoints
+|   |   |-- serializers.py         Request/response serialization
+|   |   |-- utils.py               OTP and token handling utilities
+|   |   |-- permission.py          Custom permission classes
+|   |   |-- urls.py                URL routing
+|   |   |-- tests.py               Test suite for authentication
+|   |   `-- migrations/
+|   |
+|   |-- rag/
+|   |   |-- models.py              Document, Chunk, ChatHistory models
+|   |   |-- views.py               Document and chat API endpoints
+|   |   |-- serializers.py         Data serialization
+|   |   |-- tasks.py               Celery background tasks
+|   |   |-- urls.py                URL routing
+|   |   |-- tests.py               Test suite
+|   |   |-- utils/
+|   |   |   |-- vector_store.py    Similarity search logic
+|   |   |   |-- rag_engine.py      LLM integration
+|   |   |   |-- pdf_processor.py   PDF text extraction
+|   |   |   `-- query_intent.py    Query analysis
+|   |   |-- services/              Business logic services
+|   |   |-- management/            Django management commands
+|   |   `-- migrations/
+|   |
+|   `-- shared/
+|
+|-- core/
+|   |-- settings.py                Django configuration
+|   |-- urls.py                    Main URL routing
+|   |-- wsgi.py                    WSGI entry point
+|   |-- asgi.py                    ASGI entry point
+|   `-- celery.py                  Celery configuration
+|
+|-- drive_service/
+|   |-- main.py                    FastAPI application
+|   |-- app/                       FastAPI routes and services
+|   |-- Dockerfile
+|   |-- requirements.txt
+|   `-- .env.example
+|
+|-- frontend/
+|   |-- src/
+|   |   |-- components/            React components
+|   |   |-- pages/                 Page components
+|   |   |-- services/              API client layer
+|   |   |-- store/                 State management
+|   |   |-- App.jsx
+|   |   `-- main.jsx
+|   |-- public/
+|   |-- package.json
+|   |-- vite.config.js
+|   |-- tailwind.config.js
+|   |-- Dockerfile
+|   `-- .dockerignore
+|
+|-- db-init/
+|   `-- 01-pgvector.sql            pgvector extension setup
+|
+|-- db-image/
+|   `-- Dockerfile                 PostgreSQL 16 with pgvector
+|
+|-- manage.py                      Django CLI
+|-- requirements.txt               Python dependencies
+|-- docker-compose.yml             Local development stack
+|-- Dockerfile                     Django container
+|-- pytest.ini                     Pytest configuration
+|-- .env.example                   Environment template
+|-- .gitignore
+`-- README.md
 ```
 
-## Technology Stack
+---
 
-### Backend Framework
+## Prerequisites
 
-- **Django 6.0.6** - Web framework
-- **Django REST Framework 3.17.1** - API development
-- **djangorestframework-simplejwt 5.5.0** - JWT authentication
+### Required Software
+- Python 3.11 or higher (3.12 recommended)
+- Node.js 16.x or higher (18+ recommended)
+- Docker and Docker Compose for containerized deployment
+- PostgreSQL 12 or higher (if running locally without Docker)
+- Redis 6 or higher (if running locally without Docker)
 
-### Database & Storage
+### Required API Keys and Credentials
+- Groq API Key: Obtain from https://console.groq.com
+- Google OAuth Credentials: Set up in Google Cloud Console for Drive integration
 
-- **PostgreSQL** - Primary relational database
-- **pgvector 0.3.6** - Vector database extension for PostgreSQL (embeddings storage)
-- **django-pgvector 0.1.2** - Django integration for pgvector
-
-### Task Queue
-
-- **Celery 5.4.0** - Distributed task queue
-- **Redis 5.0.8** - Message broker & result backend
-
-### AI/ML
-
-- **Groq 1.5.0** - LLM inference API
-- **Sentence Transformers 5.6.0** - Text embedding generation
-
-### Document Processing
-
-- **PyMuPDF 1.28.0** - PDF parsing
-- **python-docx 1.2.0** - Word document parsing
-
-### Utilities
-
-- **python-decouple 3.8** - Environment variable management
-- **django-cors-headers 4.6.0** - CORS support
-- **requests 2.32.5** - HTTP client library
+### System Requirements
+- RAM: Minimum 4GB (8GB recommended for comfortable development)
+- Disk Space: 5GB or more for models, database, and document storage
+- Internet: Required for LLM API calls, Google Drive API, and model downloads
 
 ---
 
-## Installation & Setup
+## Quick Start
 
-### Prerequisites
+### Option 1: Docker Compose (Recommended for Quick Setup)
 
-- Python 3.10+
-- PostgreSQL 12+ (with pgvector extension)
-- Redis server running on `localhost:6379`
-- Google Cloud credentials (for Drive integration, optional)
-- Groq API key
-
-### Step-by-Step Installation
-
-1. **Clone and navigate to project**
-
-   ```bash
-   git clone https://github.com/hello-arbaaz-khan/Rag-Agent.git
-   cd Rag-Agent
-   ```
-
-2. **Create virtual environment**
-
-   ```bash
-   python -m venv venv
-   source venv/bin/activate  # On Windows: venv\Scripts\activate
-   ```
-
-3. **Install dependencies**
-
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-4. **Setup PostgreSQL and pgvector**
-
-   ```bash
-   # Create database
-   createdb documind
-   
-   # Connect to database and enable pgvector extension
-   psql documind -c "CREATE EXTENSION IF NOT EXISTS vector;"
-   ```
-
-5. **Configure environment variables**
-
-   ```bash
-   cp .env.example .env
-   # Edit .env with your credentials
-   ```
-
-   Required environment variables:
-   ```
-   SECRET_KEY=your-secret-key-here
-   DEBUG=True
-   
-   # Database Configuration
-   DB_ENGINE=postgresql
-   DB_NAME=documind
-   DB_USER=postgres
-   DB_PASSWORD=your-password
-   DB_HOST=localhost
-   DB_PORT=5432
-   
-   # Celery & Redis
-   CELERY_BROKER_URL=redis://localhost:6379/0
-   CELERY_RESULT_BACKEND=redis://localhost:6379/0
-   
-   # Groq API
-   GROQ_API_KEY=your-groq-api-key
-   
-   # Optional: Google Drive
-   GOOGLE_CLIENT_ID=your-client-id
-   GOOGLE_CLIENT_SECRET=your-client-secret
-   GOOGLE_REDIRECT_URI=http://127.0.0.1:8001/callback
-   ```
-
-6. **Run migrations**
-
-   ```bash
-   python manage.py migrate
-   ```
-
-7. **Create superuser (optional)**
-
-   ```bash
-   python manage.py createsuperuser
-   ```
-
-8. **Start services**
-
-   **Terminal 1 - Redis** (if not running):
-
-   ```bash
-   redis-server
-   ```
-
-   **Terminal 2 - Celery Worker**:
-
-   ```bash
-   celery -A core worker --loglevel=info
-   ```
-
-   **Terminal 3 - Django Server**:
-
-   ```bash
-   python manage.py runserver
-   ```
-
-   **Terminal 4 - Drive Service** (optional):
-
-   ```bash
-   cd drive_service
-   python -m venv venv
-   source venv/bin/activate
-   pip install -r requirements.txt
-   uvicorn main:app --port 8001
-   ```
-
----
-
-## Configuration
-
-### Environment Variables (.env)
+Clone and configure the repository:
 
 ```bash
-# Django Settings
+git clone https://github.com/hello-arbaaz-khan/Rag-Agent.git
+cd Rag-Agent
+cp .env.example .env
+cp drive_service/.env.example drive_service/.env
+```
+
+Edit the `.env` file with your API keys and configuration:
+
+```env
 SECRET_KEY=your-secret-key-here
 DEBUG=True
+GROQ_API_KEY=your-groq-api-key
+DB_NAME=ragdb
+DB_USER=raguser
+DB_PASSWORD=ragpassword
+```
 
-# Celery & Redis
+Start all services using Docker Compose:
+
+```bash
+docker-compose up -d
+```
+
+Access the application at these URLs:
+- Frontend: http://localhost:3000
+- Backend API: http://localhost:8000
+- PostgreSQL Database: localhost:5433
+
+### Option 2: Local Development Setup
+
+Clone the repository:
+
+```bash
+git clone https://github.com/hello-arbaaz-khan/Rag-Agent.git
+cd Rag-Agent
+```
+
+Create and activate Python virtual environment:
+
+```bash
+python3 -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+```
+
+Install Python dependencies:
+
+```bash
+pip install -r requirements.txt
+```
+
+Set up environment configuration:
+
+```bash
+cp .env.example .env
+# Edit .env with your settings
+```
+
+Initialize the database:
+
+```bash
+python manage.py migrate
+```
+
+Start the Django development server:
+
+```bash
+python manage.py runserver
+```
+
+In a separate terminal, start the Celery worker for background tasks:
+
+```bash
+celery -A core worker -l info
+```
+
+In another terminal, start the React frontend:
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+Access the application at:
+- Frontend: http://localhost:3000
+- Backend API: http://localhost:8000
+
+---
+
+## Running Locally
+
+### Backend Setup
+
+#### 1. PostgreSQL Database Configuration
+
+Install PostgreSQL and create a database with the necessary user:
+
+```bash
+psql -U postgres
+
+CREATE DATABASE ragdb;
+CREATE USER raguser WITH PASSWORD 'ragpassword';
+ALTER ROLE raguser SET client_encoding TO 'utf8';
+ALTER ROLE raguser SET default_transaction_isolation TO 'read committed';
+ALTER ROLE raguser SET default_transaction_deferrable TO on;
+ALTER ROLE raguser SET timezone TO 'UTC';
+GRANT ALL PRIVILEGES ON DATABASE ragdb TO raguser;
+\q
+```
+
+Enable the pgvector extension for vector operations:
+
+```bash
+psql -U raguser -d ragdb
+
+CREATE EXTENSION IF NOT EXISTS vector;
+\q
+```
+
+#### 2. Redis Installation and Configuration
+
+Install and start Redis for the message broker:
+
+```bash
+# macOS using Homebrew
+brew install redis
+brew services start redis
+
+# Ubuntu/Debian
+sudo apt-get install redis-server
+sudo systemctl start redis-server
+
+# Using Docker
+docker run -d -p 6379:6379 redis:7-alpine
+```
+
+#### 3. Python Dependencies Installation
+
+Create virtual environment and install requirements:
+
+```bash
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+```
+
+#### 4. Environment Configuration
+
+Create environment file from template:
+
+```bash
+cp .env.example .env
+```
+
+Edit `.env` with your specific settings:
+
+```env
+SECRET_KEY=your-secret-key-here
+DEBUG=True
+GROQ_API_KEY=your-groq-api-key
+GROQ_MODEL=mixtral-8x7b-32768
+
+# Database Configuration
+DB_NAME=ragdb
+DB_USER=raguser
+DB_PASSWORD=ragpassword
+DB_HOST=localhost
+DB_PORT=5432
+
+# Redis and Celery
 CELERY_BROKER_URL=redis://localhost:6379/0
 CELERY_RESULT_BACKEND=redis://localhost:6379/0
 
-# Groq API (for LLM)
+# Email Configuration (console backend for local testing)
+EMAIL_BACKEND=django.core.mail.backends.console.EmailBackend
+
+# Drive Service URL
+DRIVE_SERVICE_BASE_URL=http://localhost:8001
+```
+
+#### 5. Database Migrations
+
+Run Django migrations to set up database schema:
+
+```bash
+python manage.py migrate
+```
+
+#### 6. Create Superuser (Optional)
+
+Create an admin user for Django admin panel:
+
+```bash
+python manage.py createsuperuser
+```
+
+#### 7. Start Django Development Server
+
+Start the Django development server:
+
+```bash
+python manage.py runserver
+```
+
+Backend will be available at http://127.0.0.1:8000
+
+### Celery Worker Setup
+
+Start Celery worker in a separate terminal (with virtual environment activated):
+
+```bash
+celery -A core worker -l info
+```
+
+This worker processes background tasks including document embedding, text extraction, and Google Drive synchronization.
+
+### Frontend Setup
+
+Install npm dependencies and start development server:
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+Frontend will be available at http://localhost:3000
+
+Build production bundle:
+
+```bash
+npm run build
+```
+
+---
+
+## Running with Docker
+
+### Starting All Services
+
+Start all services defined in docker-compose.yml:
+
+```bash
+docker-compose up -d
+```
+
+Services will start in the following order:
+- PostgreSQL database (port 5433)
+- Redis cache and queue (port 6380)
+- Django backend (port 8000)
+- Celery worker for background tasks
+- Drive service for Google Drive operations (port 8001)
+- React frontend development server (port 3000)
+
+### Viewing Service Logs
+
+View logs from all running services:
+
+```bash
+# All services
+docker-compose logs -f
+
+# Specific service
+docker-compose logs -f django
+docker-compose logs -f celery_worker
+docker-compose logs -f frontend
+```
+
+### Stopping Services
+
+Stop and remove all running containers:
+
+```bash
+docker-compose down
+```
+
+### Rebuilding Docker Images
+
+Rebuild images if you've made changes to code or dependencies:
+
+```bash
+docker-compose build --no-cache
+docker-compose up -d
+```
+
+### Database Persistence
+
+PostgreSQL data is stored in a named Docker volume called postgres-data. This volume persists across container restarts and even when containers are removed with `docker-compose down`.
+
+---
+
+## Environment Variables
+
+Create a `.env` file in the project root with the following variables:
+
+```env
+# Django Core Settings
+SECRET_KEY=your-secret-key-here
+DEBUG=True  # Set to False in production
+
+# Database Configuration
+DB_NAME=ragdb
+DB_USER=raguser
+DB_PASSWORD=ragpassword
+DB_HOST=db                    # Use 'db' for Docker, 'localhost' for local development
+DB_PORT=5432
+
+# Redis and Celery Configuration
+CELERY_BROKER_URL=redis://redis:6379/0      # Docker configuration
+CELERY_RESULT_BACKEND=redis://redis:6379/0  # Docker configuration
+# For local development, use:
+# CELERY_BROKER_URL=redis://localhost:6379/0
+# CELERY_RESULT_BACKEND=redis://localhost:6379/0
+
+# Groq LLM API Configuration
 GROQ_API_KEY=your-groq-api-key
+GROQ_MODEL=mixtral-8x7b-32768  # Alternative: other available Groq models
 
-# Google Drive (optional)
-GOOGLE_CLIENT_ID=your-client-id
-GOOGLE_CLIENT_SECRET=your-client-secret
-GOOGLE_REDIRECT_URI=http://127.0.0.1:8001/callback
+# Google Drive Integration
+DRIVE_SERVICE_BASE_URL=http://drive_service:8001  # Docker configuration
+# For local development, use:
+# DRIVE_SERVICE_BASE_URL=http://localhost:8001
+
+# Email Configuration
+EMAIL_BACKEND=django.core.mail.backends.console.EmailBackend  # Development/Testing
+# For production, configure SMTP:
+# EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend
+# EMAIL_HOST=smtp.gmail.com
+# EMAIL_PORT=587
+# EMAIL_HOST_USER=your-email@gmail.com
+# EMAIL_HOST_PASSWORD=your-app-password
+# DEFAULT_FROM_EMAIL=your-email@gmail.com
+
+# OTP Settings
+OTP_EXPIRY_SECONDS=120
 ```
 
-### Django Settings Highlights
+Create `drive_service/.env` for Google Drive integration:
 
-- **Media Files**: Stored in `/workspace/media/`
-- **Static Files**: Served at `/static/`
-- **CORS Origins**:
-  - `http://localhost:3000`
-  - `http://127.0.0.1:3000`
-  - `http://10.223.216.28:3000`
-- **Database Timeout**: 30 seconds (for concurrent bulk operations)
-
----
-
-## API Reference
-
-Base URL: `http://localhost:8000/api/`
-
-### 1. Document Management
-
-#### List All Documents
-
-```http
-GET /api/list/
-```
-
-**Response:**
-
-```json
-{
-  "success": true,
-  "data": [
-    {
-      "id": 1,
-      "name": "report.pdf",
-      "file_type": "pdf",
-      "file_size": 1048576,
-      "is_processed": true,
-      "processing_error": "",
-      "chunk_count": 45,
-      "created_at": "2025-01-15T10:30:00Z",
-      "updated_at": "2025-01-15T10:35:00Z"
-    }
-  ]
-}
-```
-
-#### Upload Document
-
-```http
-POST /api/upload/
-Content-Type: multipart/form-data
-
-FormData:
-- file: <binary>
-- name: "My Document"
-- file_type: "pdf"
-```
-
-**Constraints:**
-
-- Max file size: 50MB
-- Allowed types: `pdf`, `docx`, `doc`, `txt`
-
-**Response:**
-
-```json
-{
-  "success": true,
-  "data": {
-    "id": 1,
-    "name": "My Document",
-    "file_type": "pdf",
-    "is_processed": false,
-    ...
-  }
-}
-```
-
-#### Delete Document
-
-```http
-DELETE /api/detail/<int:document_id>/
-```
-
-**Response:** `204 No Content`
-
-#### Get Document Status
-
-```http
-GET /api/status/<int:document_id>/
-```
-
-**Response:**
-
-```json
-{
-  "success": true,
-  "data": {
-    "id": 1,
-    "name": "report.pdf",
-    "is_processed": true,
-    "processing_error": "",
-    "chunk_count": 45
-  }
-}
+```env
+GOOGLE_CREDENTIALS_FILE=credentials.json
+GOOGLE_TOKEN_FILE=token.json
+DJANGO_BASE_URL=http://django:8000  # Docker configuration
+# For local development, use:
+# DJANGO_BASE_URL=http://localhost:8000
+GOOGLE_API_TIMEOUT_SECONDS=60
+GOOGLE_API_PREFER_IPV4=True
 ```
 
 ---
 
-### 2. Question & Answer
+## Database Setup
 
-#### Ask Question
+### PostgreSQL Installation
 
-```http
-POST /api/question/
-Content-Type: application/json
+Install PostgreSQL on your system:
 
-{
-  "question": "What is the main conclusion?",
-  "document_id": 1
-}
+macOS with Homebrew:
+```bash
+brew install postgresql@16
+brew services start postgresql@16
 ```
 
-**Validation:**
-
-- `question`: 2-1000 characters, non-empty
-- `document_id`: Must exist and be processed
-
-**Response:**
-
-```json
-{
-  "success": true,
-  "data": {
-    "question": "What is the main conclusion?",
-    "answer": "The main conclusion is...",
-    "source_chunks": [
-      {
-        "chunk_text": "...",
-        "page_number": 5,
-        "chunk_index": 12
-      }
-    ],
-    "document_name": "report.pdf",
-    "confidence_score": 0.87
-  }
-}
+Ubuntu/Debian:
+```bash
+sudo apt-get install postgresql postgresql-contrib postgresql-16-pgvector
 ```
 
-**Error Cases:**
+Windows:
+Download installer from https://www.postgresql.org/download/windows/
 
-- `400 Bad Request` - Document not processed or invalid input
-- `404 Not Found` - Document doesn't exist
+### Creating Database and User
 
----
-
-### 3. Chat History
-
-#### Get Chat History
-
-```http
-GET /api/history/<int:document_id>/
-```
-
-**Response:**
-
-```json
-{
-  "success": true,
-  "data": [
-    {
-      "id": 1,
-      "document": 1,
-      "question": "What is X?",
-      "answer": "X is...",
-      "created_at": "2025-01-15T11:00:00Z"
-    }
-  ]
-}
-```
-
-#### Clear Chat History
-
-```http
-DELETE /api/history/<int:document_id>/
-```
-
-**Response:** `204 No Content`
-
----
-
-### 4. Search
-
-#### Global Search
-
-```http
-GET /api/search/?query=<search_query>
-```
-
-**Parameters:**
-
-- `query` (optional): Search text. If empty, returns all documents.
-
-**Response:**
-
-```json
-{
-  "results": [...],
-  "query": "machine learning"
-}
-```
-
----
-
-### 5. Google Drive Sync
-
-#### Sync Drive Documents
-
-```http
-POST /api/sync-drive/
-```
-
-**Description:** Fetches files from Google Drive and queues them for processing.
-
-**Response:**
-
-```json
-{
-  "status": "success",
-  "synced_count": 5,
-  "failed_count": 0
-}
-```
-
----
-
-## Database Models
-
-### UploadedDocument
-
-Stores metadata about uploaded files.
-
-| Field                   | Type            | Description                                |
-| ----------------------- | --------------- | ------------------------------------------ |
-| `id`                    | AutoField       | Primary key                                |
-| `name`                  | CharField(255)  | File name                                  |
-| `file`                  | FileField       | Uploaded file (path: `uploads/documents/`) |
-| `file_type`             | CharField(10)   | Type: pdf, doc, docx, txt                  |
-| `file_size`             | BigIntegerField | Size in bytes                              |
-| `is_processed`          | BooleanField    | Processing completion flag                 |
-| `processing_started_at` | DateTimeField   | When processing began                      |
-| `processing_error`      | TextField       | Error message if failed                    |
-| `created_at`            | DateTimeField   | Auto timestamp                             |
-| `updated_at`            | DateTimeField   | Auto timestamp                             |
-
-**Properties:**
-
-- `file_size_mb` - File size in MB
-- `chunk_count` - Number of associated chunks
-
----
-
-### DocumemtsChunks
-
-Stores document chunks with embeddings.
-
-| Field         | Type          | Description                 |
-| ------------- | ------------- | --------------------------- |
-| `document`    | ForeignKey    | Link to UploadedDocument    |
-| `chunk_text`  | TextField     | Text content of chunk       |
-| `chunk_size`  | IntegerField  | Character count             |
-| `chunk_index` | IntegerField  | Sequential order            |
-| `embedding`   | JSONField     | Vector embedding (nullable) |
-| `page_number` | IntegerField  | Source page number          |
-| `created_at`  | DateTimeField | Auto timestamp              |
-
-**Relations:**
-
-- Reverse relation from UploadedDocument: `document.chunks.all()`
-
----
-
-### ChatHistory
-
-Stores Q&A conversation history.
-
-| Field        | Type          | Description         |
-| ------------ | ------------- | ------------------- |
-| `document`   | ForeignKey    | Associated document |
-| `question`   | TextField     | User's question     |
-| `answer`     | TextField     | AI's response       |
-| `created_at` | DateTimeField | Auto timestamp      |
-
----
-
-### DriveDocument
-
-Tracks Google Drive synced files.
-
-| Field               | Type           | Description                          |
-| ------------------- | -------------- | ------------------------------------ |
-| `drive_file_id`     | CharField(255) | Google Drive file ID (unique)        |
-| `name`              | CharField(500) | File name                            |
-| `mime_type`         | CharField(100) | MIME type                            |
-| `drive_modified_at` | DateTimeField  | Last modified on Drive               |
-| `sync_status`       | CharField(20)  | pending, processing, indexed, failed |
-| `sync_error`        | TextField      | Sync error message                   |
-| `document`          | OneToOneField  | Linked UploadedDocument (nullable)   |
-
----
-
-## Services Layer
-
-Business logic is separated into service classes for maintainability.
-
-### DocumentService
-
-Location: `rag/services/document_service.py`
-
-```python
-# Create and queue document for processing
-document = DocumentService.create_and_process(file, name, file_type)
-
-# Delete document and cleanup vector store
-DocumentService.delete(document_id)
-
-# List all documents
-documents = DocumentService.list_all()
-
-# Get processing status
-status = DocumentService.get_status(document_id)
-```
-
-**Key Operations:**
-
-- Creates `UploadedDocument` record
-- Triggers async `process_document_task`
-- Deletes ChromaDB collections on document deletion
-- Handles transactional integrity
-
----
-
-### QAService
-
-Location: `rag/services/qa_service.py`
-
-```python
-result = QAService.answer_question(question, document_id)
-```
-
-**Workflow:**
-
-1. Validates document is processed
-2. Retrieves chat history for context
-3. Searches similar chunks via vector store
-4. Builds context and prompt
-5. Generates answer via Groq LLM
-6. Calculates confidence score
-7. Stores Q&A in ChatHistory
-
-**Returns:**
-
-```python
-{
-    "question": str,
-    "answer": str,
-    "source_chunks": list,
-    "document_name": str,
-    "confidence_score": float
-}
-```
-
----
-
-### SearchService
-
-Location: `rag/services/search_service.py`
-
-```python
-# Search with query
-results = SearchService.search("machine learning")
-
-# Browse all (no query)
-results = SearchService.browse()
-```
-
----
-
-### DriveService
-
-Location: `rag/services/drive_service.py`
-
-```python
-# Sync Google Drive files
-result = sync_drive_documents()
-```
-
-**Process:**
-
-1. Calls external drive_service (port 8001)
-2. Creates/updates DriveDocument records
-3. Queues documents for processing
-
----
-
-## Background Tasks
-
-### Celery Configuration
-
-Location: `documind/celery.py`
-
-```python
-# Broker: Redis
-# Backend: Redis
-# Task serializer: JSON
-# Late acknowledgment: Enabled
-```
-
-### process_document_task
-
-Location: `rag/tasks.py`
-
-**Signature:**
-
-```python
-@app.task(bind=True, acks_late=True)
-def process_document_task(self, document_id):
-    ...
-```
-
-**Workflow:**
-
-1. Fetch document from DB
-2. Update status to "processing"
-3. Parse document (PDF/DOCX/TXT)
-4. Split into chunks
-5. Generate embeddings (sentence-transformers)
-6. Store in ChromaDB (per-document collection)
-7. Store global chunks
-8. Update `is_processed` flag
-9. Handle errors and rollback
-
-**Error Handling:**
-
-- Sets `processing_error` field
-- Logs failures
-- Allows retry via Celery
-
----
-
-## Utilities
-
-### vector_store.py
-
-Location: `rag/utils/vector_store.py`
-
-**Functions:**
-
-- `search_similar_chunks(query, document_id, top_k)` - Semantic search
-- `delete_document_collection(document_id)` - Remove per-document collection
-- `delete_global_document_chunks(document_id)` - Cleanup global index
-- `add_chunks_to_collection(...)` - Insert chunks with embeddings
-
-**ChromaDB Strategy:**
-
-- Per-document collection: `document{document_id}`
-- Global collection for cross-document search
-
----
-
-### rag_engine.py
-
-Location: `rag/utils/rag_engine.py`
-
-**Functions:**
-
-- `build_context(chunks)` - Concatenate chunk texts
-- `build_prompt(question, context, history)` - Create LLM prompt with conversation history
-- `generate_answer(prompt)` - Call Groq API
-- `calculate_confidence(chunks)` - Compute relevance score
-
-**Prompt Template:**
-Includes:
-
-- System instructions
-- Conversation history
-- Retrieved context
-- User question
-
----
-
-### pdf_processor.py
-
-Location: `rag/utils/pdf_processor.py`
-
-**Functions:**
-
-- Extract text from PDF/DOCX/TXT
-- Split into configurable chunk sizes
-- Preserve page numbers
-
----
-
-## Development Guidelines
-
-### Adding New API Endpoints
-
-1. **Create View** in `rag/views.py`:
-
-```python
-class MyNewView(APIView):
-    def get(self, request):
-        # Your logic
-        return Response({"data": ...})
-```
-
-2. **Add URL** in `rag/urls.py`:
-
-```python
-path('my-endpoint/', MyNewView.as_view(), name='my-endpoint'),
-```
-
-3. **Create Serializer** (if needed) in `rag/serializers.py`
-
-4. **Add Service Method** (if business logic needed) in `rag/services/`
-
----
-
-### Creating New Models
-
-1. **Define Model** in `rag/models.py` with proper `verbose_name`
-2. **Create Migration**:
-   ```bash
-   python manage.py makemigrations
-   python manage.py migrate
-   ```
-3. **Register in Admin** (optional) in `rag/admin.py`
-4. **Create Serializer** for API exposure
-
----
-
-### Best Practices
-
-**Do:**
-
-- Use service layer for business logic (not views)
-- Validate input with serializers
-- Handle exceptions gracefully
-- Log errors with proper context
-- Use transactions for multi-step DB operations
-- Add verbose names to models for admin interface
-
-**Don't:**
-
-- Put business logic in views
-- Skip input validation
-- Ignore exception handling
-- Make blocking calls in request handlers (use Celery)
-
----
-
-### Testing
+Connect to PostgreSQL and set up database and user:
 
 ```bash
-# Run tests
-python manage.py test rag
+psql -U postgres
 
-# With coverage
-coverage run manage.py test rag
+CREATE DATABASE ragdb;
+CREATE USER raguser WITH PASSWORD 'ragpassword';
+ALTER ROLE raguser SET client_encoding TO 'utf8';
+ALTER ROLE raguser SET default_transaction_isolation TO 'read committed';
+ALTER ROLE raguser SET default_transaction_deferrable TO on;
+ALTER ROLE raguser SET timezone TO 'UTC';
+GRANT ALL PRIVILEGES ON DATABASE ragdb TO raguser;
+\q
+```
+
+### Enabling pgvector Extension
+
+Enable pgvector for vector storage and operations:
+
+```bash
+psql -U raguser -d ragdb
+
+CREATE EXTENSION IF NOT EXISTS vector;
+\q
+```
+
+### Running Migrations
+
+Apply all database migrations:
+
+```bash
+python manage.py migrate
+```
+
+---
+
+## API Endpoints
+
+### Authentication Endpoints
+- `POST /api/auth/signup/` - Register new user account
+- `POST /api/auth/login/` - Authenticate user and receive access and refresh tokens
+- `POST /api/auth/verify-otp/` - Verify email OTP code
+- `POST /api/auth/resend-otp/` - Request new OTP code
+- `POST /api/auth/forgot-password/` - Initiate password reset process
+- `POST /api/auth/reset-password/` - Complete password reset with token
+- `POST /api/auth/change-password/` - Change password for authenticated user
+- `POST /api/auth/refresh/` - Refresh expired access token using refresh token
+
+### Document Management Endpoints
+- `GET /api/documents/` - List all user's documents
+- `POST /api/documents/` - Upload new document
+- `GET /api/documents/{id}/` - Retrieve specific document details
+- `DELETE /api/documents/{id}/` - Delete document
+- `GET /api/documents/{id}/status/` - Get document processing status
+
+### Chat and Conversation Endpoints
+- `POST /api/documents/{id}/chat/` - Send message and get AI response
+- `GET /api/documents/{id}/chat-history/` - Retrieve conversation history
+- `DELETE /api/documents/{id}/chat/{chat_id}/` - Remove specific message
+
+### Search Endpoints
+- `GET /api/search/` - Perform semantic search across documents
+- `GET /api/search/history/` - Retrieve user's search history
+
+### Google Drive Integration Endpoints
+- `POST /api/drive/connect/` - Connect Google Drive account
+- `GET /api/drive/status/` - Check synchronization status
+- `POST /api/drive/sync/` - Manually trigger synchronization
+- `GET /api/drive/documents/` - List documents synced from Google Drive
+
+---
+
+## Testing
+
+### Running Complete Test Suite
+
+Execute all tests in the project:
+
+```bash
+python manage.py test
+```
+
+### Running Tests for Specific Application
+
+Run tests for individual Django apps:
+
+```bash
+# Authentication application tests
+python manage.py test apps.auth_manager
+
+# RAG application tests
+python manage.py test apps.rag
+```
+
+### Using Pytest Framework
+
+Run tests with pytest if installed:
+
+```bash
+pytest
+```
+
+### Running Tests with Coverage Report
+
+Generate test coverage metrics:
+
+```bash
+pip install coverage
+coverage run -m pytest
 coverage report
-```
-
----
-
-### Management Commands
-
-Custom commands location: `rag/management/commands/`
-
-**Example:**
-
-```bash
-# Requeue stuck documents
-python manage.py requeue_stuck_documents
+coverage html  # Generate HTML report in htmlcov/
 ```
 
 ---
 
 ## Troubleshooting
 
-### Common Issues
+### Database Connection Issues
 
-**1. "database is locked" error**
+Problem: "psycopg2 connection refused" error when starting Django
 
-- Cause: Concurrent writes exceeding SQLite timeout
-- Solution: Already set to 30s; reduce concurrent bulk operations
+Solution:
+- Verify PostgreSQL is running: `psql -U postgres -c "SELECT 1;"`
+- Check database credentials in `.env` file
+- Verify DB_HOST, DB_PORT, and DB_NAME are correct
+- Confirm database exists: `psql -l`
+- On Docker, ensure `db` service has started and passed health checks
 
-**2. "Document is still being processed"**
+### Vector Database Extension Missing
 
-- Cause: Asking questions before processing completes
-- Solution: Check `is_processed` flag or `status` endpoint first
+Problem: "pgvector extension not found" error during migrations
 
-**3. Celery tasks not executing**
+Solution:
+```bash
+psql -U raguser -d ragdb -c "CREATE EXTENSION IF NOT EXISTS vector;"
+```
 
-- Verify Redis is running: `redis-cli ping` → `PONG`
-- Check Celery worker logs
-- Ensure broker URL matches
+### Redis Connection Failed
 
-**4. ChromaDB collection errors**
+Problem: "Redis connection refused" or Celery not processing tasks
 
-- Collections are named `document{document_id}`
-- Orphaned collections may need manual cleanup
+Solution:
+- Verify Redis is running: `redis-cli ping`
+- Check CELERY_BROKER_URL in `.env` file
+- Start Redis if not running: `redis-server` or use Docker
+- For Docker issues, verify redis service status: `docker-compose ps redis`
+
+### Celery Tasks Not Processing
+
+Problem: Background document processing tasks not running
+
+Solution:
+- Confirm Celery worker is running: `celery -A core worker -l info`
+- Test Redis connection: `redis-cli ping`
+- Monitor active tasks: `celery -A core events`
+- Check Celery logs for error messages
+- Restart Celery worker if needed
+
+### Document Processing Stuck
+
+Problem: Document remains in processing state indefinitely
+
+Solution:
+- Requeue stuck documents:
+  ```bash
+  python manage.py requeue_stuck_documents
+  ```
+- Check Celery logs for errors: `docker-compose logs celery_worker`
+- Verify sufficient disk space available
+- Ensure Celery worker has access to temporary files
+- Restart Celery worker
+
+### Groq API Rate Limit
+
+Problem: Responses with "Rate limit exceeded" from Groq API
+
+Solution:
+- Implement request throttling in your application
+- Upgrade Groq account tier for higher limits
+- Add retry logic with exponential backoff
+- Monitor API usage in Groq dashboard
+
+### Google Drive Synchronization Failures
+
+Problem: Drive sync fails or documents not syncing
+
+Solution:
+- Verify Google credentials file is valid and accessible
+- Check GOOGLE_CREDENTIALS_FILE path in drive_service/.env
+- Re-authenticate Google account: delete existing connection and reconnect
+- Check drive_service logs: `docker-compose logs drive_service`
+- Verify DJANGO_BASE_URL is correct in drive_service/.env
+- Check Google API quota limits in Google Cloud Console
+
+### Frontend Cannot Reach Backend
+
+Problem: Network errors or CORS failures when accessing API
+
+Solution:
+- Verify CORS_ALLOWED_ORIGINS in core/settings.py includes frontend URL
+- Confirm backend is running on correct port
+- Check browser console for specific CORS error messages
+- Verify API base URL is correct in frontend configuration
+- Test direct backend URL accessibility: `curl http://localhost:8000/api/`
 
 ---
 
-## Deployment Considerations
+## Roadmap
 
-### Production Checklist
+### High Priority Improvements
+- Implement better retrieval and reranking algorithms for improved accuracy
+- Add streaming response support using Server-Sent Events
+- Support additional document formats (XLSX, PPTX, HTML)
+- Implement OCR for processing scanned documents
+- Enable multi-document conversations within single chat
+- Improve citation quality and attribution tracking
 
-- [ ] Set `DEBUG=False`
-- [ ] Use PostgreSQL instead of SQLite
-- [ ] Configure production Redis
-- [ ] Set up multiple Celery workers
-- [ ] Use environment variables for secrets
-- [ ] Configure proper logging
-- [ ] Set up monitoring (Celery Flower, Sentry)
-- [ ] Enable HTTPS
-- [ ] Review CORS origins
-- [ ] Set up backup strategy for DB and media files
+### Medium Priority Features
+- Upgrade to more powerful embedding models
+- Implement query refinement and clarification
+- Add document versioning and change tracking
+- Support user roles and team collaboration features
+- Implement advanced analytics and usage tracking
+- Enhance full-text search capabilities
 
-### Scaling
-
-- **Horizontal**: Multiple Django instances behind load balancer
-- **Celery**: Scale workers based on queue depth
-- **ChromaDB**: Consider Chroma cloud or alternative vector DB for high load
-- **Database**: Migrate to PostgreSQL for better concurrency
-
----
-
-## API Quick Reference Card
-
-| Endpoint             | Method | Description           |
-| -------------------- | ------ | --------------------- |
-| `/api/upload/`       | POST   | Upload new document   |
-| `/api/list/`         | GET    | List all documents    |
-| `/api/detail/<id>/`  | DELETE | Delete document       |
-| `/api/status/<id>/`  | GET    | Get processing status |
-| `/api/question/`     | POST   | Ask question          |
-| `/api/history/<id>/` | GET    | Get chat history      |
-| `/api/history/<id>/` | DELETE | Clear chat history    |
-| `/api/search/`       | GET    | Global search         |
-| `/api/sync-drive/`   | POST   | Sync Google Drive     |
+### Production Readiness
+- Achieve comprehensive test coverage across all modules
+- Set up production monitoring with Sentry and DataDog
+- Implement rate limiting and usage quotas
+- Generate API documentation with Swagger and OpenAPI
+- Perform load testing and performance optimization
+- Develop deployment guides for AWS, GCP, and Azure
+- Conduct security audit and penetration testing
+- Implement backup and disaster recovery procedures
 
 ---
 
-## Support & Contributing
+## Why I Built This
 
-For issues or contributions:
+I created DocuMind as a comprehensive learning project to understand how a complete, production-grade RAG application works from start to finish.
 
-1. Check existing documentation
-2. Follow code style (PEP 8)
-3. Add tests for new features
-4. Update documentation as needed
+My objective was not simply to create another chatbot that calls an LLM. Instead, I wanted to work through all the non-trivial parts that make a real system work:
+
+### Learning Objectives
+
+- Document Ingestion: Handling multiple file formats, text extraction, and metadata preservation
+- Text Processing: Developing chunking strategies, managing overlap, and preserving context
+- Embeddings: Generating and storing vector representations at scale
+- Vector Search: Implementing similarity matching, ranking, and retrieval optimization
+- RAG Architecture: Combining retrieval and generation for accurate responses
+- Asynchronous Processing: Managing background jobs with Celery and task scheduling
+- Authentication: Implementing secure user management, OTP verification, and JWT tokens
+- API Design: Building RESTful APIs with proper serialization and error handling
+- Frontend Development: Creating responsive React interfaces with real-time updates
+- Google Drive Integration: Implementing OAuth 2.0 and file synchronization
+- Database Design: Managing both relational and vector data together
+- DevOps: Containerizing applications with Docker and orchestrating with Docker Compose
+- Testing: Writing unit tests, integration tests, and tracking coverage
+
+This project demonstrates how these components integrate into a real application rather than treating them as isolated tutorials.
 
 ---
 
-## Documentation
+## Author
 
-Detailed documentation is available in the `/docs` directory:
+Arbaz Khan
 
-- **[Quick Start Guide](./docs/QUICKSTART.md)** - Get up and running in minutes
-- **[API Reference](./docs/API.md)** - Complete API documentation with examples
-- **[Architecture Overview](./docs/ARCHITECTURE.md)** - System design and architecture details
+GitHub: https://github.com/hello-arbaaz-khan
+
+Repository: https://github.com/hello-arbaaz-khan/Rag-Agent
 
 ---
 
-_Last Updated: August 2025_
-_Version: 1.0.0_
+## Contributing
+
+Contributions are welcome and appreciated. To contribute:
+
+1. Fork the repository
+2. Create a feature branch (git checkout -b feature/AmazingFeature)
+3. Commit your changes (git commit -m 'Add AmazingFeature')
+4. Push to the branch (git push origin feature/AmazingFeature)
+5. Open a Pull Request with a clear description of your changes
+
+---
+
+## Support
+
+If you encounter issues or have questions:
+
+1. Check the Troubleshooting section above
+2. Search existing GitHub Issues for similar problems
+3. Create a new issue with detailed information about the problem, steps to reproduce, and your environment

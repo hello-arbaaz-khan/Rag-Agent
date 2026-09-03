@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { documentApi } from "../services/api";
 import { useAppContext } from "../context/AppContext";
+import { useDriveConnection } from "./useDriveConnection";
 
 const SYNC_INTERVAL_MS = 60 * 1000; // 1 minute
 
@@ -8,12 +9,19 @@ const SYNC_INTERVAL_MS = 60 * 1000; // 1 minute
  * Automatically calls /api/sync-drive/ every 1 minute for the lifetime
  * of the app (mounted once at the App root), so Drive changes are picked
  * up without any manual "Sync Drive" button.
+ *
+ * Only runs once Google Drive is actually connected — otherwise this used
+ * to fire every minute for every user and surface an error toast for
+ * anyone who'd never connected Drive in the first place.
  */
 export const useDriveAutoSync = () => {
   const { addToast } = useAppContext();
+  const { loading, connected } = useDriveConnection();
   const syncingRef = useRef(false);
 
   useEffect(() => {
+    if (loading || !connected) return undefined;
+
     const runSync = async () => {
       // Avoid overlapping calls if a previous sync is still in flight
       if (syncingRef.current) return;
@@ -34,5 +42,5 @@ export const useDriveAutoSync = () => {
     return () => {
       clearInterval(intervalId);
     };
-  }, []);
+  }, [loading, connected]);
 };

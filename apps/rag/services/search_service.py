@@ -89,11 +89,11 @@ def _serialize_drive_doc(doc):
 
 class SearchService:
     @staticmethod
-    def browse(user):
+    def browse(user, auth_header):
         """No query — return local rows plus a live Drive metadata fetch."""
         from apps.rag.services.drive_service import browse_files
 
-        data = browse_files(page_size=50, user=user)
+        data = browse_files(user, auth_header, page_token=None, page_size=50)
         results = data.get("files", [])
 
         return {
@@ -122,7 +122,7 @@ class SearchService:
         scored = []
 
         if topic:
-            content_matches = search_all_documents(topic, top_k=1000, user=user)
+            content_matches = search_all_documents(topic, top_k=50, user=user)
             content_scores = {m["document_id"]: m["relevance_score"] for m in content_matches}
             content_snippets = {m["document_id"]: m["matched_chunk_text"] for m in content_matches}
 

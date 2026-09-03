@@ -27,25 +27,31 @@ MIME_TO_FILE_TYPE = {
 }
 
 
-def fetch_drive_files(user):
+def fetch_drive_files(user, auth_header):
+    if not auth_header:
+        raise ValueError("Missing authorization header — cannot reach drive_service.")
 
-    headers = {"Authorization": f"Bearer {get_jwt_for(user)}"}  # depends on Phase II's token-passing design — placeholder until then
-    response = requests.get(f"{DRIVE_SERVICE_BASE_URL}/files/", headers=headers, timeout=30)
+    headers = {"Authorization": auth_header}
+    response = requests.get(f"{DRIVE_SERVICE_BASE_URL}/files", headers=headers, timeout=30)
     response.raise_for_status()
     data = response.json()
     return data.get('files', [])
 
-def fetch_drive_files_page(page_size=50, page_token=None):
+def fetch_drive_files_page(auth_header, page_size=50, page_token=None):
+    if not auth_header:
+        raise ValueError("Missing authorization header — cannot reach drive_service.")
+
+    headers = {"Authorization": auth_header}
     params = {"page_size": page_size}
     if page_token:
         params["page_token"] = page_token
-    response = requests.get(f"{DRIVE_SERVICE_BASE_URL}/files", params=params, timeout=30)
+    response = requests.get(f"{DRIVE_SERVICE_BASE_URL}/files", params=params, headers=headers, timeout=30)
     response.raise_for_status()
     return response.json()
 
 
-def process_pending_drive_file(drive_doc_id: int, user):
-    drive_doc = DriveDocument.objects.get(id=drive_doc_id, user=user)
+def process_pending_drive_file(drive_doc_id: int, auth_header: str):
+    drive_doc = DriveDocument.objects.get(id=drive_doc_id)
 
     # Guard: skip if already picked up
     if drive_doc.sync_status not in ("pending", "failed"):
@@ -65,8 +71,9 @@ def process_pending_drive_file(drive_doc_id: int, user):
     
     try:
         response = requests.get(
-            f"{DRIVE_SERVICE_BASE_URL}/files/{drive_doc.drive_file_id}/download",
+            f"{DRIVE_SERVICE_BASE_URL}/files{drive_doc.drive_file_id}/download",
             params={"name": drive_doc.name, "mime_type": drive_doc.mime_type},
+            headers={"Authorization": auth_header},
             timeout=120,
         )
         response.raise_for_status()
@@ -79,7 +86,7 @@ def process_pending_drive_file(drive_doc_id: int, user):
             raise ValueError(f"Unsupported file type: {drive_doc.mime_type}")
 
         uploaded_doc = DocumentService.create_and_process(
-            user=user,
+            user=drive_doc.user,
             file=django_file,
             name=drive_doc.name,
             file_type=file_type,
@@ -97,9 +104,9 @@ def process_pending_drive_file(drive_doc_id: int, user):
         drive_doc.save()
 
 
-def sync_drive_documents(user):
+def sync_drive_documents(user, auth_header):
     """Sync drive documents to local database. Clean up files deleted from Drive."""
-    files = fetch_drive_files(user)
+    files = fetch_drive_files(user, auth_header)
     active_drive_ids = {f['id'] for f in files if not f.get('trashed', False)}
     created_count = 0
     updated_count = 0
@@ -155,7 +162,7 @@ def sync_drive_documents(user):
     # Step 3: Pending files processing
     for doc_id in pending_ids:
         try:
-            process_pending_drive_file(doc_id, user)
+            process_pending_drive_file(doc_id, auth_header)
         except Exception as e:
             logger.error("[drive] Error processing pending file %s: %s", doc_id, e)
 
@@ -182,7 +189,7 @@ def _serialize_drive_doc(doc):
 
 SYNC_STATUS_ORDER = {"indexed": 0, "processing": 1, "pending": 2, "failed": 3}
 
-def browse_files(user, page_token=None, page_size=50):
+def browse_files(user, auth_header, page_token=None, page_size=50):
     """
     Page of files for the search/browse UI.
     Removed/deleted files are automatically excluded because
@@ -201,7 +208,7 @@ def browse_files(user, page_token=None, page_size=50):
             }
 
         remaining_slots = page_size - total_local
-        drive_result = fetch_drive_files_page(page_size=page_size)
+        drive_result = fetch_drive_files_page(auth_header, page_size=page_size)
         known_ids = {d.drive_file_id for d in local_files}
         new_from_drive = [f for f in drive_result["files"] if f["id"] not in known_ids]
 
@@ -212,6 +219,7 @@ def browse_files(user, page_token=None, page_size=50):
             drive_modified = _parse_modified_time(f.get('modified_time'))
             obj, _ = DriveDocument.objects.get_or_create(
                 drive_file_id=f["id"],
+                user=user,
                 defaults={
                     "name": f["name"],
                     "mime_type": f["mime_type"],
@@ -232,7 +240,7 @@ def browse_files(user, page_token=None, page_size=50):
 
     # "See more" clicked
     real_token = None if page_token == "__DRIVE_START__" else page_token
-    drive_result = fetch_drive_files_page(page_size=page_size, page_token=real_token)
+    drive_result = fetch_drive_files_page(auth_header, page_size=page_size, page_token=real_token)
 
     batch_docs = []
     for f in drive_result["files"]:
@@ -241,6 +249,7 @@ def browse_files(user, page_token=None, page_size=50):
         drive_modified = _parse_modified_time(f.get('modified_time'))
         obj, _ = DriveDocument.objects.get_or_create(
             drive_file_id=f["id"],
+            user=user,
             defaults={
                 "name": f["name"],
                 "mime_type": f["mime_type"],
