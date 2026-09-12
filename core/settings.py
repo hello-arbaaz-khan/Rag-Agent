@@ -56,8 +56,12 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'rest_framework',
-    'apps.rag',
+    # 'apps.rag',
     'apps.auth_manager',
+    'apps.chat',
+    'apps.documents',
+    'apps.drive',
+    'apps.integrations',
     'rest_framework_simplejwt',
 ]
 
