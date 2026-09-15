@@ -1,9 +1,6 @@
 from pydantic import BaseModel, Field
 from typing import Dict, Any
 
-# =====================================================================
-# Real-World Allowed File Extensions Configurations
-# =====================================================================
 
 # Layout and structural formats handled natively by PyMuPDF / pymupdf4llm
 DOCUMENT_LAYOUT_FORMATS = [
@@ -38,15 +35,8 @@ CHAT_VISION_FORMATS = [
 ALL_ALLOWED_EXTENSIONS = tuple(DOCUMENT_LAYOUT_FORMATS + DOCUMENT_TEXT_FORMATS + CHAT_VISION_FORMATS)
 
 
-# =====================================================================
-# Standardized Internal Data Models for Ingestion
-# =====================================================================
-
 class InternalDocument(BaseModel):
-    """
-    Standardized container ensuring all structural file outputs collapse 
-    into a single data contract before hitting the chunking steps.
-    """
+
     document_id: str = Field(description="Unique UUID reference originating from Django database")
     content: str = Field(description="Clean layout-aware plain text or converted Markdown payload string")
     metadata: Dict[str, Any] = Field(
