@@ -1,45 +1,64 @@
 from pydantic import BaseModel, Field
-from typing import Dict, Any
+from typing import Any, Dict, List
 
 
 # Layout and structural formats handled natively by PyMuPDF / pymupdf4llm
 DOCUMENT_LAYOUT_FORMATS = [
-    ".pdf", 
+    ".pdf",
     ".epub",
     ".html",
-    ".xml", 
-    ".xps"  
+    ".xml",
+    ".xps",
 ]
 
-# Text-heavy document formats and clean data tabular strings
 DOCUMENT_TEXT_FORMATS = [
     ".docx",
-    ".doc", 
-    ".txt", 
-    ".md",  
-    ".csv", 
+    ".doc",
+    ".txt",
+    ".md",
+    ".csv",
     ".xlsx",
-    ".json" 
+    ".json",
 ]
 
-# Direct image graphic formats uploaded in chat windows requiring Vision/OCR fallback
 CHAT_VISION_FORMATS = [
-    ".jpg", 
+    ".jpg",
     ".jpeg",
-    ".png", 
+    ".png",
     ".webp",
-    ".tiff" 
+    ".tiff",
 ]
 
-# Master configuration tuple for application level validation routing gateways
-ALL_ALLOWED_EXTENSIONS = tuple(DOCUMENT_LAYOUT_FORMATS + DOCUMENT_TEXT_FORMATS + CHAT_VISION_FORMATS)
+ALL_ALLOWED_EXTENSIONS = tuple(
+    DOCUMENT_LAYOUT_FORMATS
+    + DOCUMENT_TEXT_FORMATS
+    + CHAT_VISION_FORMATS
+)
+
+
+class DocumentPage(BaseModel):
+    """A single page of extracted document content."""
+
+    page_number: int = Field(
+        ge=1,
+        description="1-indexed page number",
+    )
+    content: str = Field(
+        description="Extracted Markdown or plain text content",
+    )
 
 
 class InternalDocument(BaseModel):
-
-    document_id: str = Field(description="Unique UUID reference originating from Django database")
-    content: str = Field(description="Clean layout-aware plain text or converted Markdown payload string")
+    document_id: str = Field(
+        description="Unique UUID reference originating from Django database",
+    )
+    pages: List[DocumentPage] = Field(
+        description="Extracted document pages with 1-indexed page numbers",
+    )
     metadata: Dict[str, Any] = Field(
-        default_factory=dict, 
-        description="Tracks underlying system telemetry: file name, sizing tracking, hashes, page counts"
+        default_factory=dict,
+        description=(
+            "Tracks underlying system telemetry: file name, sizing tracking, "
+            "hashes, page counts"
+        ),
     )

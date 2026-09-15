@@ -2,13 +2,6 @@ from dataclasses import dataclass, field
 
 
 @dataclass
-class ExtractedPage:
-
-    page_number: int
-    text: str
-
-
-@dataclass
 class ChunkData:
 
     chunk_text: str
