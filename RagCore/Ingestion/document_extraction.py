@@ -6,13 +6,14 @@ from RagCore.Ingestion.exceptions import IngestionError
 from RagCore.Ingestion.document import (
     DOCUMENT_LAYOUT_FORMATS, 
     DOCUMENT_TEXT_FORMATS,
-    ALL_ALLOWED_EXTENSIONS
+    ALL_ALLOWED_EXTENSIONS,
+    DocumentPage,
 )
 
 class DocumentExtractionEngine:
 
     @classmethod
-    def extract_to_markdown(cls, file_path: str) -> str:
+    def extract_to_markdown(cls, file_path: str) -> list[DocumentPage]:
         if not os.path.exists(file_path):
             raise IngestionError(f"Target document file not found at: {file_path}")
 
@@ -25,27 +26,37 @@ class DocumentExtractionEngine:
         try:
             # 2. Handle Complex Layout Formats (.pdf, .epub, .html, etc.) via PyMuPDF4LLM
             if ext in DOCUMENT_LAYOUT_FORMATS:
-                # Force casting to 'str' to completely satisfy strict Pyright/Pylance type engine
-                markdown_data = pymupdf4llm.to_markdown(file_path)
-                return str(markdown_data)
+                page_dicts = pymupdf4llm.to_markdown(file_path, page_chunks=True)
+                pages = [
+                    DocumentPage(
+                        page_number=page_dict["metadata"]["page"],
+                        content=str(page_dict["text"]),
+                    )
+                    for page_dict in page_dicts
+                ]
+
+                if not any(page.content.strip() for page in pages):
+                    raise IngestionError("Document text space came up empty or is corrupted.")
+
+                return pages
 
             # 3. Handle Standard Text/Data Formats (.docx, .txt, .md, .csv, .xlsx, .json)
             elif ext in DOCUMENT_TEXT_FORMATS:
-                extracted_text = ""
-                
+                pages: list[DocumentPage] = []
+
                 with fitz.open(file_path) as doc:
                     for page in doc:
                         # Explicit string extraction guard
                         page_string = page.get_text("text")
-                        if isinstance(page_string, str):
-                            extracted_text += page_string
-                        else:
-                            extracted_text += str(page_string)
-                
-                if not extracted_text.strip():
+                        if not isinstance(page_string, str):
+                            page_string = str(page_string)
+
+                        pages.append(DocumentPage(page_number=int(page.number) + 1, content=page_string))
+
+                if not any(page.content.strip() for page in pages):
                     raise IngestionError("Document text space came up empty or is corrupted.")
-                    
-                return extracted_text
+
+                return pages
 
             else:
                 raise IngestionError(f"Extension '{ext}' must be routed to the Vision Engine.")
