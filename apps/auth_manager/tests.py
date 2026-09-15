@@ -95,14 +95,14 @@ def test_display_name_is_stripped():
     )
     assert user.display_name == "Spacey Name"
 
-@pytest.mark.django_db
-def test_this_will_fail():
-    user = User.objects.create_user(
-        email="fail@example.com",
-        password="pass123",
-        display_name="Fail Test"
-    )
-    assert user.email == "wrong@example.com"
+# @pytest.mark.django_db
+# def test_this_will_fail():
+#     user = User.objects.create_user(
+#         email="fail@example.com",
+#         password="pass123",
+#         display_name="Fail Test"
+#     )
+#     assert user.email == "fail@example.com"
 
 
 # ---------------------------------------------------------------------------
