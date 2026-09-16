@@ -11,7 +11,6 @@ DOCUMENT_LAYOUT_FORMATS = [
 
 DOCUMENT_TEXT_FORMATS = [
     ".docx",
-    ".doc", 
     ".txt", 
     ".md",  
     ".csv", 

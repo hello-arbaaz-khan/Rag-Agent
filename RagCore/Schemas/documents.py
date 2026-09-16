@@ -3,7 +3,6 @@ from dataclasses import dataclass, field
 
 @dataclass
 class ChunkData:
-
     chunk_text: str
     chunk_index: int
     page_number: int
@@ -13,7 +12,6 @@ class ChunkData:
 
 @dataclass
 class IngestionResult:
-
     chunks: list[ChunkData]
 
     @property
