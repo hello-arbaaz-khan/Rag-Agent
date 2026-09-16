@@ -13,6 +13,9 @@ DOCUMENT_LAYOUT_FORMATS = [
 
 DOCUMENT_TEXT_FORMATS = [
     ".docx",
+    ".txt", 
+    ".md",  
+    ".csv", 
     ".doc",
     ".txt",
     ".md",

@@ -1,21 +1,20 @@
-import os
 import pytest
 from unittest.mock import MagicMock, patch
-from RagCore.Ingestion.pipeline import IngestionPipeline
-from RagCore.Ingestion.document_extraction import DocumentExtractionEngine
-from RagCore.Ingestion.vision_extraction import VisionExtractionEngine
+
 from RagCore.Ingestion.document import DocumentPage
-from RagCore.Ingestion.exceptions import IngestionError
+from RagCore.Ingestion.exceptions import EmptyExtractionError, IngestionError
+from RagCore.Ingestion.pipeline import IngestionPipeline
+from RagCore.Ingestion.vision_extraction import VisionExtractionEngine
+
 
 @patch("RagCore.Ingestion.document_extraction.pymupdf4llm.to_markdown")
 @patch("os.path.exists")
 def test_pipeline_happy_path_pdf_success(mock_exists, mock_to_markdown):
-
     mock_exists.return_value = True
     mock_to_markdown.return_value = [
         {
             "text": "# Annual Financial Report\nCompany growth is stable at 15%.",
-            "metadata": {"page": 1},
+            "metadata": {"page_number": 1},
         }
     ]
 
@@ -33,16 +32,15 @@ def test_pipeline_happy_path_pdf_success(mock_exists, mock_to_markdown):
 @patch.object(VisionExtractionEngine, "_encode_image_to_base64")
 @patch("os.path.exists")
 def test_pipeline_happy_path_direct_image_success(mock_exists, mock_encode, mock_groq_class):
-
     mock_exists.return_value = True
     mock_encode.return_value = "fake_base64_string"
 
     mock_client = MagicMock()
     mock_response = MagicMock()
-    
+
     mock_choice_element = MagicMock()
     mock_choice_element.message.content = "| Items | Price |\n|---|---|\n| Coffee | $4.50 |"
-    
+
     mock_response.choices = [mock_choice_element]
     mock_client.chat.completions.create.return_value = mock_response
     mock_groq_class.return_value = mock_client
@@ -57,10 +55,10 @@ def test_pipeline_happy_path_direct_image_success(mock_exists, mock_encode, mock
 
 @patch("os.path.exists")
 def test_edge_case_file_physically_missing_on_disk(mock_exists):
-
-    mock_exists.return_value = False  # File is gone
+    mock_exists.return_value = False
 
     pipeline = IngestionPipeline()
+
     with pytest.raises(IngestionError) as exc_info:
         pipeline.run("media/deleted_contract.pdf", "doc-uuid-missing")
 
@@ -69,46 +67,60 @@ def test_edge_case_file_physically_missing_on_disk(mock_exists):
 
 @patch("os.path.exists")
 def test_edge_case_malicious_unsupported_file_extension(mock_exists):
-
     mock_exists.return_value = True
 
     pipeline = IngestionPipeline()
+
     with pytest.raises(IngestionError) as exc_info:
         pipeline.run("uploads/dangerous_script.exe", "dangerous-uuid")
 
     assert "completely unsupported" in str(exc_info.value)
 
 
-@patch("RagCore.Ingestion.pipeline.VisionExtractionEngine.extract_image_text")
+@patch("RagCore.Ingestion.pipeline.fitz.open")
+@patch("RagCore.Ingestion.pipeline.VisionExtractionEngine.extract_pdf_pages")
 @patch("RagCore.Ingestion.pipeline.DocumentExtractionEngine.extract_to_markdown")
 @patch("os.path.exists")
-def test_edge_case_scanned_pdf_silent_vision_fallback(mock_exists, mock_doc_extract, mock_vision_extract):
-
+def test_edge_case_scanned_pdf_silent_vision_fallback( mock_exists,
+    mock_doc_extract,
+    mock_vision_extract,
+    mock_fitz_open):
     mock_exists.return_value = True
-    
-    # Simulate native text extraction hitting blank character lengths
-    mock_doc_extract.side_effect = IngestionError("Document text space came up empty or is corrupted.")
-    mock_vision_extract.return_value = "### Extracted Text from Image Scan\nAccount Name: John Doe"
+
+    mock_doc_extract.side_effect = EmptyExtractionError(
+        "Document text space came up empty or is corrupted."
+    )
+
+    mock_vision_extract.return_value = [
+        DocumentPage(page_number=1, content="### Extracted Text from Image Scan\nAccount Name: John Doe"),
+        DocumentPage(page_number=2, content="Address: Abbottabad"),
+    ]
 
     pipeline = IngestionPipeline()
     result = pipeline.run("uploads/scanned_passport.pdf", "scanned-pdf-uuid")
 
+    assert len(result.pages) == 2
     assert result.pages[0].page_number == 1
-    assert result.pages[0].content == "### Extracted Text from Image Scan\nAccount Name: John Doe"
+    assert "Account Name" in result.pages[0].content
+    assert result.pages[1].page_number == 2
+    assert "Address" in result.pages[1].content
     assert result.metadata["extraction_engine"] == "Groq Vision Fallback (Scanned PDF OCR)"
-    mock_doc_extract.assert_called_once()
-    mock_vision_extract.assert_called_once()
+
+    mock_doc_extract.assert_called_once_with("uploads/scanned_passport.pdf")
+    mock_vision_extract.assert_called_once_with("uploads/scanned_passport.pdf")
 
 
 @patch("RagCore.Ingestion.pipeline.DocumentExtractionEngine.extract_to_markdown")
 @patch("os.path.exists")
 def test_edge_case_completely_blank_or_whitespace_file(mock_exists, mock_doc_extract):
-  
     mock_exists.return_value = True
-    # Pure useless whitespace padding, wrapped as a single blank page
-    mock_doc_extract.return_value = [DocumentPage(page_number=1, content="   \n\n     \t   \n   ")]
+
+    mock_doc_extract.return_value = [
+        DocumentPage(page_number=1, content="   \n\n     \t   \n   ")
+    ]
 
     pipeline = IngestionPipeline()
+
     with pytest.raises(IngestionError) as exc_info:
         pipeline.run("uploads/blank_sheet.txt", "blank-uuid")
 
@@ -118,29 +130,33 @@ def test_edge_case_completely_blank_or_whitespace_file(mock_exists, mock_doc_ext
 @patch("RagCore.Ingestion.pipeline.DocumentExtractionEngine.extract_to_markdown")
 @patch("os.path.exists")
 def test_edge_case_document_engine_unexpected_hard_crash(mock_exists, mock_doc_extract):
-  
     mock_exists.return_value = True
-    # Simulate a sudden low-level corrupt file system crash
+
     mock_doc_extract.side_effect = Exception("Fatal memory segmentation fault in MuPDF C-Engine.")
 
     pipeline = IngestionPipeline()
+
     with pytest.raises(IngestionError) as exc_info:
         pipeline.run("uploads/corrupt_file.pdf", "corrupt-uuid")
 
-    assert "Document extraction crash" in str(exc_info.value)
+    assert "Document extraction failed" in str(exc_info.value)
 
 
-@patch("RagCore.Ingestion.pipeline.VisionExtractionEngine.extract_image_text")
+@patch("RagCore.Ingestion.pipeline.VisionExtractionEngine.extract_pdf_pages")
 @patch("RagCore.Ingestion.pipeline.DocumentExtractionEngine.extract_to_markdown")
 @patch("os.path.exists")
 def test_edge_case_vision_fallback_also_returns_blank(mock_exists, mock_doc_extract, mock_vision_extract):
- 
     mock_exists.return_value = True
-    mock_doc_extract.side_effect = IngestionError("Document text space came up empty or is corrupted.")
-    mock_vision_extract.return_value = "   " # Vision API also returns empty garbage string
+
+    mock_doc_extract.side_effect = EmptyExtractionError("Document text space came up empty or is corrupted.")
+    mock_vision_extract.return_value = []
 
     pipeline = IngestionPipeline()
+
     with pytest.raises(IngestionError) as exc_info:
         pipeline.run("uploads/blank_photo.pdf", "blank-photo-uuid")
 
     assert "contains absolutely no readable content" in str(exc_info.value)
+
+    mock_doc_extract.assert_called_once_with("uploads/blank_photo.pdf")
+    mock_vision_extract.assert_called_once_with("uploads/blank_photo.pdf")

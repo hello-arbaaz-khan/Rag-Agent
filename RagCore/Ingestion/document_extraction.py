@@ -1,8 +1,12 @@
+import csv
+import json
 import os
+
 import fitz  # PyMuPDF
 import pymupdf4llm
-from RagCore.Ingestion.exceptions import IngestionError
+from openpyxl import load_workbook
 
+from RagCore.Ingestion.exceptions import EmptyExtractionError, IngestionError
 from RagCore.Ingestion.document import (
     DOCUMENT_LAYOUT_FORMATS, 
     DOCUMENT_TEXT_FORMATS,
@@ -29,32 +33,55 @@ class DocumentExtractionEngine:
                 page_dicts = pymupdf4llm.to_markdown(file_path, page_chunks=True)
                 pages = [
                     DocumentPage(
-                        page_number=page_dict["metadata"]["page"],
+                        page_number=page_dict["metadata"]["page_number"],
                         content=str(page_dict["text"]),
                     )
                     for page_dict in page_dicts
                 ]
 
                 if not any(page.content.strip() for page in pages):
-                    raise IngestionError("Document text space came up empty or is corrupted.")
+                    raise EmptyExtractionError(
+                        "Document text space came up empty or is corrupted."
+                    )
 
                 return pages
 
-            # 3. Handle Standard Text/Data Formats (.docx, .txt, .md, .csv, .xlsx, .json)
+            # 3. Handle standard text/data formats.
             elif ext in DOCUMENT_TEXT_FORMATS:
-                pages: list[DocumentPage] = []
+                if ext in {".txt", ".md"}:
+                    with open(file_path, encoding="utf-8-sig") as source:
+                        content = source.read()
+                elif ext == ".csv":
+                    with open(file_path, newline="", encoding="utf-8-sig") as source:
+                        content = "\n".join(
+                            " | ".join(row) for row in csv.reader(source)
+                        )
+                elif ext == ".json":
+                    with open(file_path, encoding="utf-8-sig") as source:
+                        content = json.dumps(json.load(source), indent=2, ensure_ascii=False)
+                elif ext == ".xlsx":
+                    workbook = load_workbook(file_path, read_only=True, data_only=True)
+                    try:
+                        rows = []
+                        for worksheet in workbook.worksheets:
+                            rows.append(f"# {worksheet.title}")
+                            rows.extend(
+                                " | ".join("" if value is None else str(value) for value in row)
+                                for row in worksheet.iter_rows(values_only=True)
+                            )
+                        content = "\n".join(rows)
+                    finally:
+                        workbook.close()
+                else:
+                    with fitz.open(file_path) as doc:
+                        content = "\n".join(page.get_text("text") for page in doc)
 
-                with fitz.open(file_path) as doc:
-                    for page in doc:
-                        # Explicit string extraction guard
-                        page_string = page.get_text("text")
-                        if not isinstance(page_string, str):
-                            page_string = str(page_string)
+                pages = [DocumentPage(page_number=1, content=content)]
 
-                        pages.append(DocumentPage(page_number=int(page.number) + 1, content=page_string))
-
-                if not any(page.content.strip() for page in pages):
-                    raise IngestionError("Document text space came up empty or is corrupted.")
+                if not content.strip():
+                    raise EmptyExtractionError(
+                        "Document text space came up empty or is corrupted."
+                    )
 
                 return pages
 

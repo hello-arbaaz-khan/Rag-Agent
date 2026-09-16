@@ -14,6 +14,12 @@ class IngestionError(DocuMindError):
     """Raisederror_context specifically when file reading or text parsing fails."""
     pass
 
+
+class EmptyExtractionError(IngestionError):
+    """Raised when a parser succeeds but produces no readable content."""
+    pass
+
+
 class IntegrationError(DocuMindError):
     """Raised specifically when third-party cloud APIs (like Google Drive) fail."""
     pass
