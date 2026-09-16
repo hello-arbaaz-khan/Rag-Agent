@@ -15,6 +15,30 @@ jobs:
   test:
     runs-on: ubuntu-latest
 
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_DB: test_db
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U postgres -d test_db"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+    env:
+      SECRET_KEY: ci-test-secret
+      DEBUG: "False"
+      DB_NAME: test_db
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      DB_HOST: 127.0.0.1
+      DB_PORT: 5432
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -29,6 +53,14 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
+      - name: Enable pgvector
+        run: |
+          PGPASSWORD=postgres psql \
+            -h 127.0.0.1 \
+            -U postgres \
+            -d test_db \
+            -c "CREATE EXTENSION IF NOT EXISTS vector;"
+
       - name: Run tests
         run: |
-          pytest
+          PYTHONPATH=. python -m pytest
