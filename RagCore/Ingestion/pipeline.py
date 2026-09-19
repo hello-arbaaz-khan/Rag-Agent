@@ -10,7 +10,7 @@ from RagCore.Ingestion.document import (
 )
 from RagCore.Ingestion.document_extraction import DocumentExtractionEngine
 from RagCore.Ingestion.vision_extraction import VisionExtractionEngine
-from RagCore.Ingestion.exceptions import EmptyExtractionError, IngestionError
+from RagCore.ErrorsHandle.exceptions import EmptyExtractionError, IngestionError
 
 
 class IngestionPipeline:

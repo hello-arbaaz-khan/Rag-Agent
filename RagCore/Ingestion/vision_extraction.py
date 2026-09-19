@@ -6,7 +6,7 @@ from decouple import config
 from groq import Groq
 
 from RagCore.Ingestion.document import DocumentPage
-from RagCore.Ingestion.exceptions import IngestionError
+from RagCore.ErrorsHandle.exceptions import IngestionError
 
 
 class VisionExtractionEngine:

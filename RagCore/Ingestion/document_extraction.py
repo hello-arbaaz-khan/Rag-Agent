@@ -6,7 +6,7 @@ import fitz  # PyMuPDF
 import pymupdf4llm
 from openpyxl import load_workbook
 
-from RagCore.Ingestion.exceptions import EmptyExtractionError, IngestionError
+from RagCore.ErrorsHandle.exceptions import EmptyExtractionError, IngestionError
 from RagCore.Ingestion.document import (
     DOCUMENT_LAYOUT_FORMATS, 
     DOCUMENT_TEXT_FORMATS,
@@ -33,7 +33,7 @@ class DocumentExtractionEngine:
                 page_dicts = pymupdf4llm.to_markdown(file_path, page_chunks=True)
                 pages = [
                     DocumentPage(
-                        page_number=page_dict["metadata"]["page_number"],
+                        page_number=page_dict["metadata"]["page"],
                         content=str(page_dict["text"]),
                     )
                     for page_dict in page_dicts

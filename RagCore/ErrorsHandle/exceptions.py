@@ -23,3 +23,14 @@ class EmptyExtractionError(IngestionError):
 class IntegrationError(DocuMindError):
     """Raised specifically when third-party cloud APIs (like Google Drive) fail."""
     pass
+
+class EmbeddingError(DocuMindError):
+    pass
+
+
+class RetrievalError(DocuMindError):
+    pass
+
+
+class QueryError(DocuMindError):
+    pass
