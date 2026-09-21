@@ -34,3 +34,6 @@ class RetrievalError(DocuMindError):
 
 class QueryError(DocuMindError):
     pass
+
+class RerankingError(DocuMindError):
+    pass
