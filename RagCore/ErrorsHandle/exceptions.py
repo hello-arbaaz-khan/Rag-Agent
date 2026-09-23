@@ -37,3 +37,6 @@ class QueryError(DocuMindError):
 
 class RerankingError(DocuMindError):
     pass
+
+class GenerationError(DocuMindError):
+    pass
