@@ -40,3 +40,6 @@ class RerankingError(DocuMindError):
 
 class GenerationError(DocuMindError):
     pass
+
+class AgentError(DocuMindError):
+    pass
