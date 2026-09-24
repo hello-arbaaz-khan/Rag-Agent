@@ -1,11 +1,22 @@
 from math import isfinite
-from RagCore.ErrorsHandle.exceptions import RetrievalError
+from enum import Enum
+
 from pydantic import BaseModel, Field
+
+from RagCore.ErrorsHandle.exceptions import RetrievalError
+
+
+class RetrievalMode(str, Enum):
+    VECTOR = "vector"
+    HYBRID = "hybrid"
 
 
 class RetrievalConfig(BaseModel):
     top_k: int = Field(default=20, gt=0)
     dimensions: int = Field(default=384, gt=0)
+    mode: RetrievalMode = RetrievalMode.VECTOR
+    candidate_k: int = Field(default=20, gt=0)
+    rrf_k: int = Field(default=60, gt=0)
 
 
 class RetrievalResult(BaseModel):
@@ -18,8 +29,10 @@ class RetrievalResult(BaseModel):
     metadata: dict = Field(default_factory=dict)
 
 
-def validate_query_embedding(embedding: list[float],dimensions: int,) -> None:
-    
+def validate_query_embedding(
+    embedding: list[float],
+    dimensions: int,
+) -> None:
     if not embedding:
         raise RetrievalError("Query embedding cannot be empty.")
 
