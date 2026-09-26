@@ -43,3 +43,6 @@ class GenerationError(DocuMindError):
 
 class AgentError(DocuMindError):
     pass
+
+class EvaluationError(DocuMindError):
+    pass
