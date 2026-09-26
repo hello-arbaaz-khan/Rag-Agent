@@ -6,8 +6,8 @@ from RagCore.Chunking.pipeline import ChunkingPipeline
 from RagCore.Ingestion.pipeline import IngestionPipeline
 
 
-SAMPLES_DIR = Path(__file__).parent.parent / "Tests" / "Fixtures"/"Pdf_samples" / "sample.docx"
-DOCX_SAMPLES_DIR = Path(__file__).parent.parent / "Testes" / "Fixtures" / "Docx_samples" / "sample.pdf"
+SAMPLES_DIR = Path(__file__).parent.parent / "Tests" / "Fixtures" / "Pdf_samples"
+DOCX_SAMPLES_DIR = Path(__file__).parent.parent / "Tests" / "Fixtures" / "Docx_samples"
 
 
 def get_sample_files(directory: Path, extensions: tuple[str, ...]) -> list[Path]:
@@ -27,7 +27,7 @@ def test_real_pdf_ingestion_to_chunking(file_path):
     ingestion = IngestionPipeline()
     chunking = ChunkingPipeline()
 
-    document = ingestion.process(file_path)
+    document = ingestion.run(file_path=str(file_path),document_id=file_path.stem)
     chunks = chunking.process(document)
 
     assert chunks
@@ -46,7 +46,7 @@ def test_real_docx_ingestion_to_chunking(file_path):
     ingestion = IngestionPipeline()
     chunking = ChunkingPipeline()
 
-    document = ingestion.process(file_path)
+    document = ingestion.run(file_path=str(file_path),document_id=file_path.stem)
     chunks = chunking.process(document)
 
     assert chunks
@@ -65,7 +65,7 @@ def test_real_document_chunking_is_deterministic(file_path):
     ingestion = IngestionPipeline()
     chunking = ChunkingPipeline()
 
-    document = ingestion.process(file_path)
+    document = ingestion.run(file_path=str(file_path),document_id=file_path.stem)
 
     first = chunking.process(document)
     second = chunking.process(document)
@@ -83,7 +83,7 @@ def test_real_document_chunk_metadata(file_path):
     ingestion = IngestionPipeline()
     chunking = ChunkingPipeline()
 
-    document = ingestion.process(file_path)
+    document = ingestion.run(file_path=str(file_path),document_id=file_path.stem)
     chunks = chunking.process(document)
 
     assert chunks
@@ -109,7 +109,7 @@ def test_real_document_pages_are_preserved(file_path):
     ingestion = IngestionPipeline()
     chunking = ChunkingPipeline()
 
-    document = ingestion.process(file_path)
+    document = ingestion.run(file_path=str(file_path),document_id=file_path.stem)
     chunks = chunking.process(document)
 
     document_pages = {

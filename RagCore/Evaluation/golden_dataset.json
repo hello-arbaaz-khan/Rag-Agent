@@ -1,0 +1,17 @@
+[
+  {
+    "query": "What database technology is used for vector search?",
+    "relevant_chunk_ids": [
+      "does_not_exist:14"
+    ],
+    "reference_answer": "The backend uses PostgreSQL with pgvector for vector search."
+  },
+  {
+    "query": "What is the current chunking strategy?",
+    "relevant_chunk_ids": [
+      "does_not_exist:11",
+      "does_not_exist:12"
+    ],
+    "reference_answer": "The backend uses fixed word-based chunking with 100-word chunks and a 50-word overlap."
+  }
+]
