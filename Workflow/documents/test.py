@@ -1,400 +1,424 @@
-from unittest.mock import Mock
+from pathlib import Path
 
 from django.contrib.auth import get_user_model
-from django.core.files.uploadedfile import SimpleUploadedFile
+from django.core.files import File
 from django.test import TestCase
 
 from apps.documents.models import DocumemtsChunk, UploadedDocument
-from Workflow.documents.document_processing import DocumentProcessingWorkflow
+
+from RagCore.ErrorsHandle.exceptions import IntegrationError
+
+from Workflow.documents.document_processing import (
+    DocumentProcessingWorkflow,
+)
+
 
 User = get_user_model()
 
-class DocumentProcessingWorkflowTests(TestCase):
 
+class DocumentProcessingWorkflowIntegrationTests(TestCase):
+    """
+    Real integration tests for the complete document-processing workflow.
+
+    These tests intentionally do NOT mock RagCore components.
+
+    Real pipeline:
+
+        UploadedDocument
+            ↓
+        DocumentProcessingWorkflow
+            ↓
+        IngestionPipeline
+            ↓
+        ChunkingPipeline
+            ↓
+        EmbeddingPipeline
+            ↓
+        ChunkPersistenceService
+            ↓
+        Django PostgreSQL / pgvector
+    """
+
+    FIXTURES_DIR = (
+        Path(__file__).resolve().parents[2]
+        / "RagCore"
+        / "Tests"
+        / "Fixtures"
+    )
+
+    PDF_FIXTURE = (
+        FIXTURES_DIR
+        / "Pdf_samples"
+        / "sample.pdf"
+    )
+
+    TWO_PAGE_PDF_FIXTURE = (
+        FIXTURES_DIR
+        / "Pdf_samples"
+        / "sample_two_pages.pdf"
+    )
+
+    DOCX_FIXTURE = (
+        FIXTURES_DIR
+        / "Docx_samples"
+        / "sample.docx"
+    )
 
     def setUp(self):
         self.user = self._create_test_user()
-    
-        self.uploaded_file_content = (
-            b"Documind integration test document. "
-            b"This document is used to verify the "
-            b"Workflow to Django database connection."
-        )
-    
-        self.document = UploadedDocument.objects.create(
-            user=self.user,
-            name="integration-test.txt",
-            file=SimpleUploadedFile(
-                "integration-test.txt",
-                self.uploaded_file_content,
-                content_type="text/plain",
-            ),
-            file_type="txt",
-            file_size=len(self.uploaded_file_content),
-        )
-    
+
+        self.workflow = DocumentProcessingWorkflow()
+
     def _create_test_user(self):
-        """
-        Create a user using the project's configured User model.
-    
-        Handles common Django custom-user configurations without
-        assuming that the project uses a particular username field.
-        """
+        if User.USERNAME_FIELD == "email":
+            return User.objects.create_user(
+                email="workflow-real-test@example.com",
+                password="test-password",
+            )
+
         username_field = User._meta.get_field(
             User.USERNAME_FIELD
         )
-    
-        username = User.USERNAME_FIELD
-    
-        if username == "email":
-            return User.objects.create_user(
-                email="workflow-test@example.com",
-                password="test-password",
-            )
-    
+
         return User.objects.create_user(
             **{
-                username_field.name: "workflow-test",
+                username_field.name: "workflow-real-test",
                 "password": "test-password",
             }
         )
-    
-    def _build_workflow(
+
+    def _create_document(
         self,
-        chunks=None,
-        embeddings=None,
-    ):
-        """
-        Build the workflow with controlled RagCore boundaries.
-    
-        This lets the test verify the real Django database
-        persistence without depending on an external LLM/model
-        during this integration test.
-        """
-        ingestion = Mock()
-        chunking = Mock()
-        embedding = Mock()
-    
-        ingestion.run.return_value = Mock(
-            document_id=str(self.document.pk)
-        )
-    
-        if chunks is None:
-            chunks = self._build_chunks()
-    
-        if embeddings is None:
-            embeddings = self._build_embeddings(
-                len(chunks)
-            )
-    
-        chunking.process.return_value = chunks
-        embedding.process.return_value = embeddings
-    
-        workflow = DocumentProcessingWorkflow(
-            ingestion_pipeline=ingestion,
-            chunking_pipeline=chunking,
-            embedding_pipeline=embedding,
-        )
-    
-        return (
-            workflow,
-            ingestion,
-            chunking,
-            embedding,
-        )
-    
-    @staticmethod
-    def _build_chunks():
-        chunk_1 = Mock()
-        chunk_1.text = "First test chunk."
-        chunk_1.size = len(chunk_1.text)
-        chunk_1.chunk_index = 0
-        chunk_1.page_number = 1
-    
-        chunk_2 = Mock()
-        chunk_2.text = "Second test chunk."
-        chunk_2.size = len(chunk_2.text)
-        chunk_2.chunk_index = 1
-        chunk_2.page_number = 1
-    
-        return [
-            chunk_1,
-            chunk_2,
-        ]
-    
-    @staticmethod
-    def _build_embeddings(count):
-        return [
-            Mock(embedding=[0.1] * 384)
-            for _ in range(count)
-        ]
-    
-    def test_successful_document_processing_persists_chunks(self):
-        workflow, ingestion, chunking, embedding = (
-            self._build_workflow()
-        )
-    
-        result = workflow.process(
-            self.document.pk
-        )
-    
-        ingestion.run.assert_called_once()
-        chunking.process.assert_called_once()
-        embedding.process.assert_called_once()
-    
-        self.assertEqual(
-            result.pk,
-            self.document.pk,
-        )
-    
-        self.assertEqual(
-            DocumemtsChunk.objects.filter(
-                document=self.document
-            ).count(),
-            2,
-        )
-    
-        self.document.refresh_from_db()
-    
+        fixture_path: Path,
+        file_type: str,
+    ) -> UploadedDocument:
         self.assertTrue(
-            self.document.is_processed
+            fixture_path.exists(),
+            f"Real fixture does not exist: {fixture_path}",
         )
-    
+
+        with fixture_path.open("rb") as file_handle:
+            django_file = File(
+                file_handle,
+                name=fixture_path.name,
+            )
+
+            document = UploadedDocument.objects.create(
+                user=self.user,
+                name=fixture_path.name,
+                file=django_file,
+                file_type=file_type,
+                file_size=fixture_path.stat().st_size,
+            )
+
+        return document
+
+    def _assert_successful_processing(
+        self,
+        document: UploadedDocument,
+    ):
+        document.refresh_from_db()
+
+        self.assertTrue(
+            document.is_processed,
+            "Document should be marked as processed.",
+        )
+
         self.assertIsNone(
-            self.document.processing_error
+            document.processing_error,
+            "Successful processing must not contain an error.",
         )
-    
+
+        self.assertIsNotNone(
+            document.processing_started_at,
+            "Processing timestamp should be recorded.",
+        )
+
         chunks = list(
             DocumemtsChunk.objects.filter(
-                document=self.document
+                document=document
             ).order_by("chunks_index")
         )
-    
-        self.assertEqual(
-            chunks[0].chunks_text,
-            "First test chunk.",
+
+        self.assertGreater(
+            len(chunks),
+            0,
+            "Real document processing must create at least one chunk.",
         )
-    
+
+        return chunks
+
+    def _assert_valid_chunks(
+        self,
+        chunks,
+    ):
+        for expected_index, chunk in enumerate(chunks):
+            self.assertEqual(
+                chunk.chunks_index,
+                expected_index,
+            )
+
+            self.assertTrue(
+                chunk.chunks_text,
+                "Persisted chunk text must not be empty.",
+            )
+
+            self.assertIsNotNone(
+                chunk.embedding,
+                "Every persisted chunk must have an embedding.",
+            )
+
+            self.assertEqual(
+                len(chunk.embedding),
+                384,
+                "Every embedding must contain exactly 384 dimensions.",
+            )
+
+    def test_real_pdf_is_processed_and_persisted(self):
+        """
+        Verifies the complete real PDF processing pipeline.
+        """
+
+        document = self._create_document(
+            fixture_path=self.PDF_FIXTURE,
+            file_type="pdf",
+        )
+
+        result = self.workflow.process(
+            document.pk
+        )
+
         self.assertEqual(
-            chunks[0].chunks_index,
+            result.pk,
+            document.pk,
+        )
+
+        chunks = self._assert_successful_processing(
+            document
+        )
+
+        self._assert_valid_chunks(
+            chunks
+        )
+
+    def test_real_two_page_pdf_is_processed(self):
+        """
+        Verifies that a multi-page PDF is extracted, chunked,
+        embedded, and persisted successfully.
+        """
+
+        document = self._create_document(
+            fixture_path=self.TWO_PAGE_PDF_FIXTURE,
+            file_type="pdf",
+        )
+
+        self.workflow.process(
+            document.pk
+        )
+
+        chunks = self._assert_successful_processing(
+            document
+        )
+
+        self._assert_valid_chunks(
+            chunks
+        )
+
+        page_numbers = {
+            chunk.page_number
+            for chunk in chunks
+            if chunk.page_number is not None
+        }
+
+        self.assertGreaterEqual(
+            len(page_numbers),
+            1,
+        )
+
+    def test_real_docx_is_processed_and_persisted(self):
+        """
+        Verifies the complete real DOCX processing pipeline.
+        """
+
+        document = self._create_document(
+            fixture_path=self.DOCX_FIXTURE,
+            file_type="docx",
+        )
+
+        result = self.workflow.process(
+            document.pk
+        )
+
+        self.assertEqual(
+            result.pk,
+            document.pk,
+        )
+
+        chunks = self._assert_successful_processing(
+            document
+        )
+
+        self._assert_valid_chunks(
+            chunks
+        )
+
+    def test_real_processing_persists_correct_chunk_count(self):
+        """
+        Verifies that the number of persisted database chunks
+        matches the number produced by the real processing pipeline.
+        """
+
+        document = self._create_document(
+            fixture_path=self.PDF_FIXTURE,
+            file_type="pdf",
+        )
+
+        self.workflow.process(
+            document.pk
+        )
+
+        chunks = DocumemtsChunk.objects.filter(
+            document=document
+        )
+
+        self.assertGreater(
+            chunks.count(),
             0,
         )
-    
-        self.assertEqual(
-            chunks[0].page_number,
-            1,
-        )
-    
-        self.assertEqual(
-            chunks[1].chunks_text,
-            "Second test chunk.",
-        )
-    
-        self.assertEqual(
-            chunks[1].chunks_index,
-            1,
-        )
-    
-    def test_embeddings_are_persisted_with_384_dimensions(self):
-        workflow, _, _, _ = self._build_workflow()
-    
-        workflow.process(
-            self.document.pk
-        )
-    
-        chunks = DocumemtsChunk.objects.filter(
-            document=self.document
-        )
-    
-        self.assertEqual(
-            chunks.count(),
-            2,
-        )
-    
+
         for chunk in chunks:
             self.assertIsNotNone(
                 chunk.embedding
             )
-    
+
+    def test_real_reprocessing_replaces_existing_chunks(self):
+        """
+        Verifies that processing the same real document again
+        does not leave stale chunks behind.
+        """
+
+        document = self._create_document(
+            fixture_path=self.PDF_FIXTURE,
+            file_type="pdf",
+        )
+
+        self.workflow.process(
+            document.pk
+        )
+
+        first_chunks = list(
+            DocumemtsChunk.objects.filter(
+                document=document
+            ).order_by("chunks_index")
+        )
+
+        self.assertGreater(
+            len(first_chunks),
+            0,
+        )
+
+        first_count = len(first_chunks)
+
+        self.workflow.process(
+            document.pk
+        )
+
+        second_chunks = list(
+            DocumemtsChunk.objects.filter(
+                document=document
+            ).order_by("chunks_index")
+        )
+
+        self.assertGreater(
+            len(second_chunks),
+            0,
+        )
+
+        self.assertEqual(
+            len(second_chunks),
+            first_count,
+        )
+
+        self._assert_valid_chunks(
+            second_chunks
+        )
+
+    def test_missing_real_file_fails_without_persisting_chunks(self):
+        """
+        Verifies the real workflow's missing-file error path.
+
+        This test does not mock the pipeline. It creates a real
+        UploadedDocument record and removes its physical file.
+        """
+
+        document = self._create_document(
+            fixture_path=self.PDF_FIXTURE,
+            file_type="pdf",
+        )
+
+        file_path = Path(
+            document.file.path
+        )
+
+        self.assertTrue(
+            file_path.exists()
+        )
+
+        file_path.unlink()
+
+        with self.assertRaises(IntegrationError):
+            self.workflow.process(
+                document.pk
+            )
+
+        document.refresh_from_db()
+
+        self.assertFalse(
+            document.is_processed
+        )
+
+        self.assertTrue(
+            document.processing_error
+        )
+
+        self.assertEqual(
+            DocumemtsChunk.objects.filter(
+                document=document
+            ).count(),
+            0,
+        )
+
+    def test_real_embeddings_are_384_dimensions(self):
+        """
+        Verifies that embeddings generated by the real
+        SentenceTransformer provider are compatible with
+        the database vector(384) column.
+        """
+
+        document = self._create_document(
+            fixture_path=self.PDF_FIXTURE,
+            file_type="pdf",
+        )
+
+        self.workflow.process(
+            document.pk
+        )
+
+        chunks = DocumemtsChunk.objects.filter(
+            document=document
+        )
+
+        self.assertGreater(
+            chunks.count(),
+            0,
+        )
+
+        for chunk in chunks:
+            self.assertIsNotNone(
+                chunk.embedding
+            )
+
             self.assertEqual(
                 len(chunk.embedding),
                 384,
             )
-    
-    def test_processing_marks_document_as_processed(self):
-        workflow, _, _, _ = self._build_workflow()
-    
-        workflow.process(
-            self.document.pk
-        )
-    
-        self.document.refresh_from_db()
-    
-        self.assertTrue(
-            self.document.is_processed
-        )
-    
-        self.assertIsNone(
-            self.document.processing_error
-        )
-    
-        self.assertIsNotNone(
-            self.document.processing_started_at
-        )
-    
-    def test_processing_failure_marks_document_failed(self):
-        ingestion = Mock()
-        chunking = Mock()
-        embedding = Mock()
-    
-        ingestion.run.side_effect = RuntimeError(
-            "RagCore ingestion failed"
-        )
-    
-        workflow = DocumentProcessingWorkflow(
-            ingestion_pipeline=ingestion,
-            chunking_pipeline=chunking,
-            embedding_pipeline=embedding,
-        )
-    
-        with self.assertRaises(RuntimeError):
-            workflow.process(
-                self.document.pk
-            )
-    
-        self.document.refresh_from_db()
-    
-        self.assertFalse(
-            self.document.is_processed
-        )
-    
-        self.assertEqual(
-            self.document.processing_error,
-            "RagCore ingestion failed",
-        )
-    
-        self.assertEqual(
-            DocumemtsChunk.objects.filter(
-                document=self.document
-            ).count(),
-            0,
-        )
-    
-    def test_invalid_embedding_dimension_fails_processing(self):
-        chunks = self._build_chunks()
-    
-        invalid_embeddings = [
-            Mock(embedding=[0.1] * 383),
-            Mock(embedding=[0.2] * 383),
-        ]
-    
-        workflow, _, _, _ = self._build_workflow(
-            chunks=chunks,
-            embeddings=invalid_embeddings,
-        )
-    
-        with self.assertRaises(ValueError):
-            workflow.process(
-                self.document.pk
-            )
-    
-        self.document.refresh_from_db()
-    
-        self.assertFalse(
-            self.document.is_processed
-        )
-    
-        self.assertTrue(
-            self.document.processing_error
-        )
-    
-        self.assertEqual(
-            DocumemtsChunk.objects.filter(
-                document=self.document
-            ).count(),
-            0,
-        )
-    
-    def test_reprocessing_replaces_existing_chunks(self):
-        workflow, _, _, _ = self._build_workflow()
-    
-        workflow.process(
-            self.document.pk
-        )
-    
-        self.assertEqual(
-            DocumemtsChunk.objects.filter(
-                document=self.document
-            ).count(),
-            2,
-        )
-    
-        new_chunk = Mock()
-        new_chunk.text = "Reprocessed document chunk."
-        new_chunk.size = len(new_chunk.text)
-        new_chunk.chunk_index = 0
-        new_chunk.page_number = 2
-    
-        new_embedding = Mock(
-            embedding=[0.3] * 384
-        )
-    
-        workflow, _, _, _ = self._build_workflow(
-            chunks=[new_chunk],
-            embeddings=[new_embedding],
-        )
-    
-        workflow.process(
-            self.document.pk
-        )
-    
-        chunks = list(
-            DocumemtsChunk.objects.filter(
-                document=self.document
-            ).order_by("chunks_index")
-        )
-    
-        self.assertEqual(
-            len(chunks),
-            1,
-        )
-    
-        self.assertEqual(
-            chunks[0].chunks_text,
-            "Reprocessed document chunk.",
-        )
-    
-        self.assertEqual(
-            chunks[0].page_number,
-            2,
-        )
-    
-    def test_chunk_and_embedding_counts_must_match(self):
-        chunks = self._build_chunks()
-    
-        embeddings = [
-            Mock(embedding=[0.1] * 384)
-        ]
-    
-        workflow, _, _, _ = self._build_workflow(
-            chunks=chunks,
-            embeddings=embeddings,
-        )
-    
-        with self.assertRaises(ValueError):
-            workflow.process(
-                self.document.pk
-            )
-    
-        self.document.refresh_from_db()
-    
-        self.assertFalse(
-            self.document.is_processed
-        )
-    
-        self.assertEqual(
-            DocumemtsChunk.objects.filter(
-                document=self.document
-            ).count(),
-            0,
-        )

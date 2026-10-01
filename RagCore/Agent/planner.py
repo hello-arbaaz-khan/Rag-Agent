@@ -82,12 +82,22 @@ Required format:
                 str(exc)
             ) from exc
 
+        response_text = response.strip()
+        if response_text.startswith("```"):
+            lines = response_text.splitlines()
+            if lines and lines[0].startswith("```"):
+                lines = lines[1:]
+            if lines and lines[-1].startswith("```"):
+                lines = lines[:-1]
+            response_text = "\n".join(lines).strip()
+
         try:
-            data = json.loads(response)
+            data = json.loads(response_text)
         except json.JSONDecodeError as exc:
             raise AgentError(
                 "Planner returned invalid JSON."
             ) from exc
+
 
         queries = data.get("queries")
 
