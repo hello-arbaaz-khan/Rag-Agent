@@ -7,10 +7,16 @@ from django.db import transaction
 from apps.documents.models import UploadedDocument
 
 from RagCore.Chunking.pipeline import ChunkingPipeline
+from RagCore.Embeddings.embedding import EmbeddingConfig
 from RagCore.Embeddings.pipeline import EmbeddingPipeline
+from RagCore.Embeddings.provider import SentenceTransformerProvider
 from RagCore.Ingestion.pipeline import IngestionPipeline
 from RagCore.ErrorsHandle.exceptions import IntegrationError
-from Workflow.documents.chunk_persistence import ChunkPersistenceService
+
+from Workflow.documents.chunk_persistence import (
+    ChunkPersistenceService,
+)
+
 
 class DocumentProcessingWorkflow:
     """
@@ -31,12 +37,25 @@ class DocumentProcessingWorkflow:
         self.ingestion_pipeline = (
             ingestion_pipeline or IngestionPipeline()
         )
+
         self.chunking_pipeline = (
             chunking_pipeline or ChunkingPipeline()
         )
-        self.embedding_pipeline = (
-            embedding_pipeline or EmbeddingPipeline()
-        )
+
+        if embedding_pipeline is None:
+            embedding_config = EmbeddingConfig()
+
+            embedding_provider = SentenceTransformerProvider(
+                embedding_config
+            )
+
+            embedding_pipeline = EmbeddingPipeline(
+                provid=embedding_provider,
+                config=embedding_config,
+            )
+
+        self.embedding_pipeline = embedding_pipeline
+
         self.persistence_service = (
             persistence_service or ChunkPersistenceService()
         )
@@ -101,9 +120,7 @@ class DocumentProcessingWorkflow:
         document: UploadedDocument,
     ) -> None:
         document.is_processed = False
-        document.processing_started_at = (
-            document.updated_at
-        )
+        document.processing_started_at = document.updated_at
         document.processing_error = None
 
         document.save(
