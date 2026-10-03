@@ -2,7 +2,7 @@ import pytest
 from unittest.mock import MagicMock, patch
 
 from RagCore.Ingestion.document import DocumentPage
-from RagCore.Ingestion.exceptions import EmptyExtractionError, IngestionError
+from RagCore.ErrorsHandle.exceptions import EmptyExtractionError, IngestionError
 from RagCore.Ingestion.pipeline import IngestionPipeline
 from RagCore.Ingestion.vision_extraction import VisionExtractionEngine
 
