@@ -49,7 +49,7 @@ def search_documents(
             detail="query must contain non-whitespace text.",
         )
 
-    documents = UploadedDocument.objects.filter(user=user_id)
+    documents = UploadedDocument.objects.filter(user_id=user_id)
 
     if filters.uploaded_after is not None:
         documents = documents.filter(
@@ -153,15 +153,21 @@ def search_documents(
         if document_id in documents_by_id
     ]
 
-    ordering_field = (
-        "name"
-        if filters.order_by == "name"
-        else "created_at"
-    )
-    ranked_documents.sort(
-        key=lambda item: getattr(item[0], ordering_field),
-        reverse=filters.order == "desc",
-    )
+    if filters.order_by == "name":
+        ranked_documents.sort(
+            key=lambda item: item[0].name.lower(),
+            reverse=filters.order == "desc",
+        )
+    elif filters.order_by == "uploaded_at":
+        ranked_documents.sort(
+            key=lambda item: item[0].created_at,
+            reverse=filters.order == "desc",
+        )
+    else:
+        ranked_documents.sort(
+            key=lambda item: item[1],
+            reverse=True,
+        )
 
     total = len(ranked_documents)
     page = ranked_documents[

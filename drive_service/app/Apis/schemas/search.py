@@ -18,16 +18,29 @@ class DocumentSearchRequest(BaseModel):
 
     file_type: Literal[
         "pdf",
+        "epub",
+        "html",
+        "xml",
+        "xps",
         "doc",
         "docx",
         "txt",
-        "image",
+        "md",
+        "csv",
+        "xlsx",
+        "json",
+        "jpg",
+        "jpeg",
+        "png",
+        "webp",
+        "tiff",
     ] | None = None
 
     order_by: Literal[
+        "relevance",
         "uploaded_at",
         "name",
-    ] = "uploaded_at"
+    ] = "relevance"
 
     order: Literal[
         "asc",

@@ -1,5 +1,12 @@
 from rest_framework import serializers
 from apps.documents.models import UploadedDocument, DocumemtsChunk
+from RagCore.Ingestion.document import ALL_ALLOWED_EXTENSIONS
+
+
+ALLOWED_FILE_TYPES = [
+    extension.lstrip(".")
+    for extension in dict.fromkeys(ALL_ALLOWED_EXTENSIONS)
+]
 
 class DocumentChunksSerializer(serializers.ModelSerializer):
     class Meta:
@@ -23,14 +30,14 @@ class UploadedDocumentSerializer(serializers.ModelSerializer):
         if value.size > max_size:
             raise serializers.ValidationError("File size must be less than 50MB")
 
-        allow_extention = ['pdf', 'docx', 'doc', 'txt', 'image']
+        allow_extention = ALLOWED_FILE_TYPES
         extention = value.name.split('.')[-1].lower()
         if extention not in allow_extention:
             raise serializers.ValidationError(f"Only {allow_extention} allowed")
         return value
 
     def validate_file_type(self, value):
-        allowed_types = ['pdf', 'docx', 'doc', 'txt']
+        allowed_types = ALLOWED_FILE_TYPES
         if value not in allowed_types:
             raise serializers.ValidationError(f"File type must be one of {allowed_types}")
         return value
