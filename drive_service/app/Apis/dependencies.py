@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from app.core.auth import get_current_user_id
@@ -25,15 +25,4 @@ def get_current_user(
     resolving the authenticated user.
     """
 
-    try:
-        user_id = get_current_user_id(
-            credentials.credentials
-        )
-    except Exception as exc:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid or expired authentication token.",
-            headers={"WWW-Authenticate": "Bearer"},
-        ) from exc
-
-    return user_id
+    return get_current_user_id(credentials)

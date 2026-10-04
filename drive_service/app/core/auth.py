@@ -17,19 +17,14 @@ import django
 
 django.setup()
 
+from django.contrib.auth import get_user_model
+
 from rest_framework_simplejwt.exceptions import (
     InvalidToken,
     TokenError,
 )
-
-from rest_framework_simplejwt.settings import (
-    api_settings,
-)
-
-from rest_framework_simplejwt.tokens import (
-    AccessToken,
-)
-
+from rest_framework_simplejwt.settings import api_settings
+from rest_framework_simplejwt.tokens import AccessToken
 
 security = HTTPBearer(
     scheme_name="Django JWT",
@@ -65,7 +60,19 @@ def get_current_user_id(
                 headers={"WWW-Authenticate": "Bearer"},
             )
 
-        return int(user_id)
+        user = get_user_model().objects.filter(
+            pk=user_id,
+            is_active=True,
+        ).only("pk").first()
+
+        if user is None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="User not found or inactive.",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+
+        return int(user.pk)
 
     except (
         InvalidToken,
