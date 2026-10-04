@@ -14,10 +14,7 @@ from fastapi import (
 )
 
 from apps.documents.models import UploadedDocument
-
-from Workflow.documents.document_processing import (
-    DocumentProcessingWorkflow,
-)
+from apps.documents.tasks import process_document_task
 
 from app.Apis.dependencies import (
     get_current_user,
@@ -45,12 +42,13 @@ SUPPORTED_FILE_TYPES = {
     ".webp": "image",
     ".tiff": "image",
 }
+MAX_UPLOAD_SIZE = 50 * 1024 * 1024
 
 
 @router.post(
     "",
     response_model=DocumentResponse,
-    status_code=status.HTTP_201_CREATED,
+    status_code=status.HTTP_202_ACCEPTED,
 )
 def upload_document(
     file: UploadFile,
@@ -76,7 +74,7 @@ def upload_document(
             detail="Unsupported document type.",
         )
 
-    content = file.file.read()
+    content = file.file.read(MAX_UPLOAD_SIZE + 1)
 
     if not content:
         raise HTTPException(
@@ -85,6 +83,12 @@ def upload_document(
         )
 
     file_size = len(content)
+
+    if file_size > MAX_UPLOAD_SIZE:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail="File size must not exceed 50 MB.",
+        )
 
     file_hash = hashlib.sha256(
         content
@@ -105,7 +109,7 @@ def upload_document(
         )
 
     document = UploadedDocument(
-        user=user,
+        user_id=user,
         name=file.filename,
         file_type=file_type,
         file_size=file_size,
@@ -121,21 +125,20 @@ def upload_document(
     document.save()
 
     try:
-        workflow = DocumentProcessingWorkflow()
-
-        workflow.process(
-            document.id,
-        )
-
-        document.refresh_from_db()
+        process_document_task.delay(document.id)
 
     except Exception as exc:
-        document.refresh_from_db()
+        document.processing_error = (
+            "Failed to queue document processing."
+        )
+        document.save(
+            update_fields=["processing_error", "updated_at"]
+        )
 
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail={
-                "message": "Document processing failed.",
+                "message": "Document was uploaded but processing could not be queued.",
                 "document_id": document.id,
                 "processing_error": document.processing_error,
             },

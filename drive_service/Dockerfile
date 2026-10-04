@@ -1,4 +1,4 @@
-FROM python:3.11-slim
+FROM python:3.12-slim
 
 WORKDIR /app
 
@@ -7,10 +7,14 @@ RUN apt-get update && apt-get install -y \
     git \
     && rm -rf /var/lib/apt/lists/*
 
+COPY requirements.txt /tmp/project-requirements.txt
 COPY drive_service/requirements.txt /tmp/drive-requirements.txt
 
-RUN pip install --no-cache-dir \
-    -r /tmp/drive-requirements.txt
+RUN pip install --no-cache-dir --timeout 300 --retries 5 \
+      torch --index-url https://download.pytorch.org/whl/cpu && \
+    pip install --no-cache-dir --timeout 300 --retries 5 \
+      -r /tmp/project-requirements.txt \
+      -r /tmp/drive-requirements.txt
 
 COPY core ./core
 COPY apps ./apps
