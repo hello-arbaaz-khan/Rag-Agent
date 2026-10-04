@@ -31,7 +31,7 @@ HEALTHCHECK \
     --start-period=40s \
     --retries=3 \
     CMD python -c \
-    "import requests; requests.get('http://localhost:8001', timeout=5)" \
+    "import requests; requests.get('http://localhost:8001/', timeout=5).raise_for_status()" \
     || exit 1
 
 CMD ["uvicorn","main:app","--host","0.0.0.0","--port","8001"]

@@ -15,6 +15,11 @@ app = FastAPI(
 )
 
 
+@app.get("/")
+def healthcheck():
+    return {"status": "ok", "service": "drive_service"}
+
+
 # Google Drive OAuth routes
 app.include_router(oauth_router)
 

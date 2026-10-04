@@ -89,7 +89,7 @@ services:
       DJANGO_SETTINGS_MODULE: core.settings
       DB_HOST: db
       DB_PORT: "5432"
-      DATABASE_URL: postgresql://${DB_USER}:${DB_PASSWORD}@db:5432/${DB_NAME}
+      DATABASE_URL: postgresql://raguser:ragpassword@db:5432/ragdb
     depends_on:
       db:
         condition: service_healthy

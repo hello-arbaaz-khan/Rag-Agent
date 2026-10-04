@@ -1,15 +1,16 @@
 from django.db import models
 from django.conf import settings
 from pgvector.django import VectorField
+from RagCore.Ingestion.document import ALL_ALLOWED_EXTENSIONS
+
+
+FILE_TYPE_CHOICES = [
+    (extension.lstrip("."), extension.lstrip(".").upper())
+    for extension in dict.fromkeys(ALL_ALLOWED_EXTENSIONS)
+]
 
 class UploadedDocument(models.Model):
-    FILE_TYPES_CHOICES = [
-        ("pdf", "PDF"),
-        ("doc", "DOC"),
-        ("docx", "DOCX"),
-        ("txt", "TXT"),
-        ("image", "IMAGE")
-    ]
+    FILE_TYPES_CHOICES = FILE_TYPE_CHOICES
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="documents")
     name = models.CharField(max_length=255, verbose_name="File name")
     file = models.FileField(upload_to="uploads/documents", verbose_name="Uploaded file")
@@ -56,5 +57,3 @@ class DocumemtsChunk(models.Model):
 
     def __str__(self):
         return f"Docu {self.document.name} | Chunk_index {self.chunk_index} | Page {self.page_number}"
-
-

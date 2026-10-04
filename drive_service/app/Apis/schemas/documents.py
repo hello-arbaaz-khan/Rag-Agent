@@ -10,6 +10,7 @@ class DocumentResponse(BaseModel):
     file_size: int
     is_processed: bool
     processing_error: str | None
+    processing_task_id: str | None = None
     created_at: datetime
     updated_at: datetime
 

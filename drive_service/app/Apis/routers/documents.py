@@ -15,6 +15,7 @@ from fastapi import (
 
 from apps.documents.models import UploadedDocument
 from apps.documents.tasks import process_document_task
+from RagCore.Ingestion.document import ALL_ALLOWED_EXTENSIONS
 
 from app.Apis.dependencies import (
     get_current_user,
@@ -32,15 +33,8 @@ router = APIRouter(
 
 
 SUPPORTED_FILE_TYPES = {
-    ".pdf": "pdf",
-    ".doc": "doc",
-    ".docx": "docx",
-    ".txt": "txt",
-    ".jpg": "image",
-    ".jpeg": "image",
-    ".png": "image",
-    ".webp": "image",
-    ".tiff": "image",
+    extension: extension.lstrip(".")
+    for extension in dict.fromkeys(ALL_ALLOWED_EXTENSIONS)
 }
 MAX_UPLOAD_SIZE = 50 * 1024 * 1024
 
@@ -95,7 +89,7 @@ def upload_document(
     ).hexdigest()
 
     existing = UploadedDocument.objects.filter(
-        user=user,
+        user_id=user,
         file_hash=file_hash,
     ).first()
 
@@ -125,7 +119,7 @@ def upload_document(
     document.save()
 
     try:
-        process_document_task.delay(document.id)
+        task = process_document_task.delay(document.id)
 
     except Exception as exc:
         document.processing_error = (
@@ -144,7 +138,9 @@ def upload_document(
             },
         ) from exc
 
-    return document
+    return DocumentResponse.model_validate(document).model_copy(
+        update={"processing_task_id": task.id}
+    )
 
 
 @router.get(
@@ -156,7 +152,7 @@ def list_documents(
 ):
     return list(
         UploadedDocument.objects
-        .filter(user=user)
+        .filter(user_id=user)
         .order_by("-created_at")
     )
 
@@ -173,7 +169,7 @@ def get_document(
         UploadedDocument.objects
         .filter(
             id=document_id,
-            user=user,
+            user_id=user,
         )
         .first()
     )
@@ -199,7 +195,7 @@ def delete_document(
         UploadedDocument.objects
         .filter(
             id=document_id,
-            user=user,
+            user_id=user,
         )
         .first()
     )
