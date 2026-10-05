@@ -67,6 +67,7 @@ class DocumentSearchResult(BaseModel):
     uploaded_at: datetime
     is_processed: bool
     relevance_score: float | None = None
+    matched_snippet: str | None = None
 
 
 class DocumentSearchResponse(BaseModel):

@@ -10,9 +10,9 @@ from googleapiclient.discovery import build
 from google_auth_httplib2 import AuthorizedHttp
 from sqlalchemy.orm import Session
 
-from app.config import settings
-from app.models.google_drive_account import GoogleDriveAccount
-from app.core.crypto import encrypt_token, decrypt_token
+from ..config import settings
+from ..models.google_drive_account import GoogleDriveAccount
+from ..core.crypto import encrypt_token, decrypt_token
 
 _original_getaddrinfo = socket.getaddrinfo
 
@@ -68,12 +68,18 @@ def get_drive_service(db: Session, user_id: int):
 
 def list_files(db: Session, user_id: int, page_size: int = 50, page_token: str = None):
     service = get_drive_service(db, user_id)
+    return _list_files_from_service(service, page_size, page_token)
 
+
+def _list_files_from_service(service, page_size: int, page_token: str = None):
     result = service.files().list(
         pageSize=page_size,
         pageToken=page_token,
         q="trashed=false",
-        fields='nextPageToken, files(id,name,mimeType,modifiedTime,trashed)'
+        fields=(
+            "nextPageToken, files(id,name,mimeType,modifiedTime,trashed,"
+            "md5Checksum,size)"
+        ),
     ).execute()
 
     return {
@@ -82,8 +88,30 @@ def list_files(db: Session, user_id: int, page_size: int = 50, page_token: str =
     }
 
 
+def list_all_files(
+    db: Session,
+    user_id: int,
+    page_size: int = 1000,
+    service=None,
+) -> list[dict]:
+    files = []
+    page_token = None
+    service = service or get_drive_service(db, user_id)
+
+    while True:
+        page = _list_files_from_service(service, page_size, page_token)
+        files.extend(page["files"])
+        page_token = page["next_page_token"]
+        if not page_token:
+            return files
+
+
 def download_file(db: Session, user_id: int, file_id: str) -> bytes:
     service = get_drive_service(db, user_id)
+    return download_file_with_service(service, file_id)
+
+
+def download_file_with_service(service, file_id: str) -> bytes:
     request = service.files().get_media(fileId=file_id)
     buffer = io.BytesIO()
     downloader = MediaIoBaseDownload(buffer, request)
@@ -94,3 +122,20 @@ def download_file(db: Session, user_id: int, file_id: str) -> bytes:
 
     buffer.seek(0)
     return buffer.read()
+
+
+def export_file(
+    db: Session,
+    user_id: int,
+    file_id: str,
+    mime_type: str,
+) -> bytes:
+    service = get_drive_service(db, user_id)
+    return export_file_with_service(service, file_id, mime_type)
+
+
+def export_file_with_service(service, file_id: str, mime_type: str) -> bytes:
+    return service.files().export(
+        fileId=file_id,
+        mimeType=mime_type,
+    ).execute()

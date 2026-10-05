@@ -7,6 +7,8 @@ class DocumentResponse(BaseModel):
     id: int
     name: str
     file_type: str
+    source: str
+    google_drive_file_id: str | None
     file_size: int
     is_processed: bool
     processing_error: str | None

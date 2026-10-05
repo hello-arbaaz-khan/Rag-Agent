@@ -90,9 +90,23 @@ and reranking pipeline, generates an answer, and persists it in Django
 | `offset` | 0 or greater | `0` |
 
 Without `query`, this lists matching document metadata. With `query`, it searches
-processed, owned documents through the existing RagCore embedding, pgvector
-retrieval, and reranking components. The response contains `results`, `count`,
-`limit`, and `offset`; semantic results include `relevance_score`.
+processed documents owned by the authenticated user using the existing
+sentence-transformer embeddings and pgvector retrieval, combined with
+PostgreSQL full-text search over document chunks. Exact filename queries (for
+example, `find Pakistan War.pdf`) prioritize the matching filename. Manual
+uploads and Google Drive documents are searched together from the same
+`UploadedDocument` records. Results are unique documents and include a
+`relevance_score` and, when available, a `matched_snippet`; search does not
+generate an answer.
+
+Examples:
+
+```text
+GET /api/v1/search?query=political%20information
+GET /api/v1/search?query=find%20Pakistan%20War.pdf
+```
+
+The response contains `results`, `count`, `limit`, and `offset`.
 
 ## Google Drive
 
@@ -101,15 +115,21 @@ which is authorized by its signed, single-use OAuth state.
 
 | Method | Endpoint | Purpose |
 |---|---|---|
-| `GET` | `/connect` | Return the Google authorization URL |
-| `GET` | `/callback` | Google OAuth redirect callback |
-| `DELETE` | `/disconnect` | Disconnect the current user's Google account |
-| `GET` | `/files` | List Drive files (`page_size`, optional `page_token`) |
-| `GET` | `/files/{file_id}/download` | Download Drive content as base64; requires `name` and `mime_type` query parameters |
+| `GET` | `/api/v1/drive/connect` | Return the Google authorization URL |
+| `GET` | `/api/v1/drive/callback` | Google OAuth redirect callback |
+| `DELETE` | `/api/v1/drive/disconnect` | Disconnect the current user's Google account |
+| `POST` | `/api/v1/drive/sync` | Queue a sync for the connected user's Drive |
+| `GET` | `/api/v1/drive/files` | List Drive files (`page_size`, optional `page_token`) |
+| `GET` | `/api/v1/drive/files/{file_id}/download` | Download Drive content as base64; requires `name` and `mime_type` query parameters |
 
 Google OAuth credentials, a connected account, PostgreSQL migrations, and
 Redis are required to exercise Drive operations. OAuth callback redirects to
-the configured frontend URL.
+the configured frontend URL and queues an initial Drive sync. The explicit
+sync endpoint returns `202 Accepted` with the Celery task ID. Supported Drive
+files are stored as `UploadedDocument` records with `source=google_drive` and
+processed through the existing document task, Workflow, and RagCore pipeline.
+Google Docs, Sheets, and Slides are exported as DOCX, XLSX, and PDF; Google
+Workspace exports larger than the Drive API's 10 MB export limit are skipped.
 
 ## Services and local setup
 
