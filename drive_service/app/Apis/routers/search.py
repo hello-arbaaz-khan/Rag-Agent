@@ -3,13 +3,16 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from apps.documents.models import UploadedDocument
+from apps.documents.services.search import (
+    DocumentSearchService,
+    get_document_search_service,
+)
 from app.Apis.dependencies import get_current_user
 from app.Apis.schemas.search import (
     DocumentSearchRequest,
     DocumentSearchResponse,
     DocumentSearchResult,
 )
-from app.Apis.services.chat_workflow import get_chat_workflow
 
 
 router = APIRouter(
@@ -28,6 +31,9 @@ def search_documents(
         Query(),
     ],
     user_id: int = Depends(get_current_user),
+    search_service: DocumentSearchService = Depends(
+        get_document_search_service
+    ),
 ):
     """
     Search the authenticated user's documents by metadata and content.
@@ -99,35 +105,16 @@ def search_documents(
             offset=filters.offset,
         )
 
-    eligible_documents = list(
-        documents.filter(is_processed=True)
-    )
-
-    if not eligible_documents:
-        return DocumentSearchResponse(
-            results=[],
-            count=0,
-            limit=filters.limit,
-            offset=filters.offset,
-        )
-
     try:
-        search_tool = (
-            get_chat_workflow()
-            .agent.executor.search_tool
-        )
         candidate_limit = min(
             1000,
             max(100, filters.offset + filters.limit),
         )
-        matches = search_tool.search(
+        matches = search_service.search(
             query,
-            document_ids=[
-                str(document.id)
-                for document in eligible_documents
-            ],
-            retrieval_top_k=candidate_limit,
-            reranking_top_k=candidate_limit,
+            user_id=user_id,
+            documents=documents,
+            top_k=candidate_limit,
         )
     except Exception as exc:
         raise HTTPException(
@@ -135,37 +122,28 @@ def search_documents(
             detail="Document search failed.",
         ) from exc
 
-    best_scores = {}
-    for match in matches:
-        document_id = int(match.document_id)
-        best_scores[document_id] = max(
-            best_scores.get(document_id, float("-inf")),
-            match.score,
-        )
-
-    documents_by_id = {
-        document.id: document
-        for document in eligible_documents
-    }
+    documents_by_id = documents.in_bulk(
+        [match.document_id for match in matches]
+    )
     ranked_documents = [
-        (documents_by_id[document_id], score)
-        for document_id, score in best_scores.items()
-        if document_id in documents_by_id
+        (match, documents_by_id[match.document_id])
+        for match in matches
+        if match.document_id in documents_by_id
     ]
 
     if filters.order_by == "name":
         ranked_documents.sort(
-            key=lambda item: item[0].name.lower(),
+            key=lambda item: item[1].name.lower(),
             reverse=filters.order == "desc",
         )
     elif filters.order_by == "uploaded_at":
         ranked_documents.sort(
-            key=lambda item: item[0].created_at,
+            key=lambda item: item[1].created_at,
             reverse=filters.order == "desc",
         )
     else:
         ranked_documents.sort(
-            key=lambda item: item[1],
+            key=lambda item: item[0].relevance_score,
             reverse=True,
         )
 
@@ -181,9 +159,10 @@ def search_documents(
             file_size=document.file_size,
             uploaded_at=document.created_at,
             is_processed=document.is_processed,
-            relevance_score=score,
+            relevance_score=match.relevance_score,
+            matched_snippet=match.matched_snippet,
         )
-        for document, score in page
+        for match, document in page
     ]
 
     return DocumentSearchResponse(

@@ -6,8 +6,6 @@ from app.Apis.routers import (
     drive,
     search,
 )
-from app.schemas.oauth import router as oauth_router
-
 
 app = FastAPI(
     title="Drive Service",
@@ -18,11 +16,6 @@ app = FastAPI(
 @app.get("/")
 def healthcheck():
     return {"status": "ok", "service": "drive_service"}
-
-
-# Google Drive OAuth routes
-app.include_router(oauth_router)
-
 
 # Application API routes
 app.include_router(documents.router)

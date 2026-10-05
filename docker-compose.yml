@@ -43,6 +43,8 @@ services:
     environment:
       DB_HOST: db
       DB_PORT: "5432"
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/0
     depends_on:
       db:
         condition: service_healthy
@@ -58,9 +60,13 @@ services:
       - ~/.cache/huggingface:/root/.cache/huggingface
     env_file:
       - .env
+      - ./drive_service/.env
     environment:
       DB_HOST: db
       DB_PORT: "5432"
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/0
+      REDIS_URL: redis://redis:6379/0
     depends_on:
       db:
         condition: service_healthy
@@ -89,6 +95,9 @@ services:
       DJANGO_SETTINGS_MODULE: core.settings
       DB_HOST: db
       DB_PORT: "5432"
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/0
+      REDIS_URL: redis://redis:6379/0
       DATABASE_URL: postgresql://raguser:ragpassword@db:5432/ragdb
     depends_on:
       db:

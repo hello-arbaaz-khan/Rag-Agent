@@ -10,11 +10,27 @@ FILE_TYPE_CHOICES = [
 ]
 
 class UploadedDocument(models.Model):
+    class Source(models.TextChoices):
+        UPLOAD = "upload", "Manual upload"
+        GOOGLE_DRIVE = "google_drive", "Google Drive"
+
     FILE_TYPES_CHOICES = FILE_TYPE_CHOICES
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="documents")
     name = models.CharField(max_length=255, verbose_name="File name")
     file = models.FileField(upload_to="uploads/documents", verbose_name="Uploaded file")
     file_type = models.CharField(max_length=10, choices=FILE_TYPES_CHOICES, verbose_name="File type")
+    source = models.CharField(
+        max_length=20,
+        choices=Source.choices,
+        default=Source.UPLOAD,
+        db_index=True,
+    )
+    google_drive_file_id = models.CharField(
+        max_length=255,
+        null=True,
+        blank=True,
+        db_index=True,
+    )
     file_size = models.BigIntegerField(default=0, verbose_name="File size")
     file_hash = models.CharField(max_length=64, db_index=True, null=True, blank=True, verbose_name="File hash")
     is_processed = models.BooleanField(default=False, verbose_name="Is processed")
@@ -24,7 +40,21 @@ class UploadedDocument(models.Model):
     updated_at = models.DateTimeField(auto_now=True, verbose_name="Updated at")
 
     class Meta:
-        unique_together = ("user", "file_hash")
+        constraints = [
+            models.UniqueConstraint(
+                fields=("user", "file_hash"),
+                condition=models.Q(
+                    source="upload",
+                    file_hash__isnull=False,
+                ),
+                name="unique_user_upload_file_hash",
+            ),
+            models.UniqueConstraint(
+                fields=("user", "google_drive_file_id"),
+                condition=models.Q(google_drive_file_id__isnull=False),
+                name="unique_user_google_drive_file",
+            ),
+        ]
         verbose_name = "Uploaded document"
         verbose_name_plural = "Uploaded documents"
         ordering = ['-created_at']

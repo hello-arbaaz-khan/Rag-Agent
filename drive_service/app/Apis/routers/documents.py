@@ -106,6 +106,7 @@ def upload_document(
         user_id=user,
         name=file.filename,
         file_type=file_type,
+        source=UploadedDocument.Source.UPLOAD,
         file_size=file_size,
         file_hash=file_hash,
     )

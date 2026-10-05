@@ -1,6 +1,6 @@
 from cryptography.fernet import Fernet
 
-from app.config import settings
+from ..config import settings
 
 _fernet = Fernet(settings.fernet_key)
 
