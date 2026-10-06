@@ -29,6 +29,7 @@ class RetrievalPipeline:
         top_k: int | None = None,
         document_ids: list[str] | None = None,
     ) -> list[RetrievalResult]:
+
         requested_top_k = (
             self.config.top_k
             if top_k is None
@@ -42,7 +43,10 @@ class RetrievalPipeline:
 
         if (
             document_ids is not None
-            and any(not document_id for document_id in document_ids)
+            and any(
+                not document_id
+                for document_id in document_ids
+            )
         ):
             raise RetrievalError(
                 "document_ids must contain non-empty values."
@@ -55,31 +59,78 @@ class RetrievalPipeline:
             )
 
             if self.config.mode == RetrievalMode.HYBRID:
+
                 if self.hybrid_retriever is None:
                     raise RetrievalError(
                         "Hybrid retrieval is not configured."
                     )
 
-                if not query or not query.strip():
+                if (
+                    not query
+                    or not query.strip()
+                ):
                     raise RetrievalError(
                         "Query is required for hybrid retrieval."
                     )
 
-                return self.hybrid_retriever.retrieve(
-                    query=query,
+                results = self.hybrid_retriever.retrieve(
+                    query=query.strip(),
                     query_embedding=query_embedding,
                     top_k=requested_top_k,
                     candidate_k=self.config.candidate_k,
                     document_ids=document_ids,
                 )
 
-            return self.repository.search(
-                query_embedding,
-                requested_top_k,
-                document_ids,
-            )
+            else:
+                results = self.repository.search(
+                    query_embedding,
+                    requested_top_k,
+                    document_ids,
+                )
+
+            if not isinstance(results, list):
+                raise RetrievalError(
+                    "Retrieval repository must return a list."
+                )
+
+            # Defensive deduplication.
+            #
+            # A chunk should never appear more than once in the
+            # retrieval result.
+            unique: dict[str, RetrievalResult] = {}
+
+            for result in results:
+                if not isinstance(
+                    result,
+                    RetrievalResult,
+                ):
+                    raise RetrievalError(
+                        "Retrieval returned an invalid result."
+                    )
+
+                existing = unique.get(
+                    result.chunk_id
+                )
+
+                if existing is None:
+                    unique[
+                        result.chunk_id
+                    ] = result
+                    continue
+
+                if result.score > existing.score:
+                    unique[
+                        result.chunk_id
+                    ] = result
+
+            return list(
+                unique.values()
+            )[:requested_top_k]
 
         except RetrievalError:
             raise
+
         except Exception as exc:
-            raise RetrievalError(str(exc)) from exc
+            raise RetrievalError(
+                str(exc)
+            ) from exc

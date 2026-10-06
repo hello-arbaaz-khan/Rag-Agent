@@ -12,8 +12,7 @@ Table of contents
 - How it works
 - Tech stack
 - Architecture & project layout
-- Quick start (Docker)
-- Local development
+- Local and Docker setup
 - Environment files (cleaned examples)
 - Database setup and pgvector
 - API examples (upload, chat, search)
@@ -72,132 +71,20 @@ Repository layout (top-level)
 - drive_service/.env.example
 - README.md
 
-Quick start (Docker — recommended for development)
-1. Clone:
-   git clone https://github.com/hello-arbaaz-khan/Rag-Agent.git
-   cd Rag-Agent
+## Local and Docker setup
 
-2. Copy env templates:
-   cp .env.example .env
-   cp drive_service/.env.example drive_service/.env
+Choose one complete setup; do not point a local Django/Celery process at
+container-only service names or mix a local Redis/PostgreSQL with Docker ones.
+The setup guide has separate instructions and environment files for each mode:
+[docs/QUICKSTART.md](docs/QUICKSTART.md).
 
-3. Edit .env and drive_service/.env with your keys and credentials:
-   - GROQ_API_KEY
-   - SECRET_KEY and FERNET_KEY
-   - DB credentials (or use DATABASE_URL)
-   - Drive OAuth credentials if using Drive sync
+For fully local services, `.env.example` and `drive_service/.env.example` use
+PostgreSQL at `127.0.0.1:5432` and Redis at `127.0.0.1:6379`.
 
-4. Start services:
-   docker-compose up -d
-
-5. Run migrations (wait until the DB container is healthy):
-   docker-compose exec django python manage.py migrate
-
-6. Create a superuser if needed:
-   docker-compose exec django python manage.py createsuperuser
-
-7. Access:
-   - Frontend: http://localhost:3000 (or the host mapping in docker-compose)
-   - Backend API: http://localhost:8000
-
-Note on DB host/port mapping
-- The README previously referenced host port 5433 in some places. Confirm host port mappings in docker-compose.yml. By default PostgreSQL container listens on 5432 inside the container; the host port depends on compose mappings. If the compose file maps container 5432 to host 5433, use 5433 on the host. Always verify docker-compose.yml.
-
-Local development (without Docker)
-1. Create a Python virtualenv:
-   python3 -m venv venv
-   source venv/bin/activate
-
-2. Install requirements:
-   pip install -r requirements.txt
-
-3. Copy and configure .env:
-   cp .env.example .env
-   # Edit values appropriately
-
-4. Prepare database and enable pgvector (see Database setup below).
-
-5. Run migrations:
-   python manage.py migrate
-
-6. Start Django:
-   python manage.py runserver
-
-7. Start Celery worker in another terminal:
-   celery -A core worker -l info
-
-8. Frontend:
-   cd frontend
-   npm install
-   npm run dev
-
-Environment examples (cleaned)
-Use consistent KEY=value format. Below are recommended cleaned templates.
-
-.env.example
-```
-# Django core
-SECRET_KEY=your-secret-key
-DEBUG=True
-
-# Groq
-GROQ_API_KEY=your-groq-api-key
-GROQ_MODEL=mixtral-8x7b-32768
-
-# Database
-DB_NAME=ragdb
-DB_USER=raguser
-DB_PASSWORD=ragpassword
-DB_HOST=db
-DB_PORT=5432
-# Alternatively:
-# DATABASE_URL=postgresql://raguser:ragpassword@db:5432/ragdb
-
-# Redis / Celery
-CELERY_BROKER_URL=redis://redis:6379/0
-CELERY_RESULT_BACKEND=redis://redis:6379/0
-
-# Drive service
-DRIVE_SERVICE_BASE_URL=http://drive_service:8001
-
-# Email (development)
-EMAIL_BACKEND=django.core.mail.backends.console.EmailBackend
-
-# OTP
-OTP_EXPIRY_SECONDS=120
-```
-
-drive_service/.env.example
-```
-GOOGLE_CREDENTIALS_FILE=credentials.json
-GOOGLE_TOKEN_FILE=token.json
-
-# For Docker:
-DJANGO_BASE_URL=http://django:8000
-# For local development:
-# DJANGO_BASE_URL=http://localhost:8000
-
-GOOGLE_API_TIMEOUT_SECONDS=60
-GOOGLE_API_PREFER_IPV4=True
-
-# Secrets
-GOOGLE_CLIENT_ID=your-google-client-id
-GOOGLE_CLIENT_SECRET=your-google-client-secret
-
-# Optional connections
-DATABASE_URL=postgresql://raguser:ragpassword@db:5432/ragdb
-REDIS_URL=redis://redis:6379/0
-
-FERNET_KEY=your-fernet-key
-SECRET_KEY=your-django-secret-key
-FRONTEND_BASE_URL=http://localhost:3000
-```
-
-How to generate keys
-- Django SECRET_KEY:
-  python -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"
-- Fernet key (Drive token encryption):
-  python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+For a fully Docker setup, copy `.env.docker.example` to `.env.docker` and
+`drive_service/.env.docker.example` to `drive_service/.env.docker`; Compose
+containers connect to `db:5432` and `redis:6379` on the Compose network. The
+ports published on the host are PostgreSQL `5433` and Redis `6380`.
 
 Database setup and pgvector
 1. Create database and user (example with psql):

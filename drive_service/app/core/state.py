@@ -4,7 +4,7 @@ from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
 
 from app.config import settings
 
-_serializer = URLSafeTimedSerializer(settings.state_signing_secret)
+_serializer = URLSafeTimedSerializer(settings.state_signing_secret or settings.secret_key)
 _redis_client = redis.from_url(settings.redis_url)
 
 STATE_TTL_SECONDS = 600

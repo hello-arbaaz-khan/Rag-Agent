@@ -39,7 +39,7 @@ services:
     ports:
       - "8000:8000"
     env_file:
-      - .env
+      - .env.docker
     environment:
       DB_HOST: db
       DB_PORT: "5432"
@@ -59,8 +59,8 @@ services:
       - media-data:/app/media
       - ~/.cache/huggingface:/root/.cache/huggingface
     env_file:
-      - .env
-      - ./drive_service/.env
+      - .env.docker
+      - ./drive_service/.env.docker
     environment:
       DB_HOST: db
       DB_PORT: "5432"
@@ -89,8 +89,8 @@ services:
     ports:
       - "8001:8001"
     env_file:
-      - .env
-      - ./drive_service/.env
+      - .env.docker
+      - ./drive_service/.env.docker
     environment:
       DJANGO_SETTINGS_MODULE: core.settings
       DB_HOST: db
