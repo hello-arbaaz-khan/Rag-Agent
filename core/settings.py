@@ -18,11 +18,10 @@ from pathlib import Path
 BASE_DIR = Path(__file__).resolve().parent.parent
 from decouple import config
 
-# for docker
-DRIVE_SERVICE_BASE_URL = "http://drive_service:8001"
-
-# for local development
-# DRIVE_SERVICE_BASE_URL = "http://127.0.0.1:8001"
+DRIVE_SERVICE_BASE_URL = config(
+    'DRIVE_SERVICE_BASE_URL',
+    default='http://127.0.0.1:8001',
+)
 
 
 CELERY_BROKER_URL = config('CELERY_BROKER_URL', default='redis://localhost:6379/0')

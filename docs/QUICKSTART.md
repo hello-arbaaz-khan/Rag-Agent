@@ -1,514 +1,157 @@
-# Quick Start Guide
+# Quick Start: Fully Local or Fully Docker
 
-Get DocuMind backend up and running in minutes.
+The PostgreSQL error
 
-## Prerequisites
+```text
+connection to server at "127.0.0.1", port 5433 failed: Connection refused
+```
 
-Before you begin, ensure you have:
+means nothing is listening at that host and port. The app could not reach
+PostgreSQL, so this is a service/host/port issue, not a Django migration error.
+In this repository, port `5433` is published by Compose for use from the host.
+Native PostgreSQL normally listens on `5432`; inside Compose, Django connects
+to the service name `db` on port `5432`.
 
-- ✅ Python 3.10 or higher
-- ✅ Redis server installed and running
-- ✅ pip (Python package manager)
-- ✅ Git (for cloning)
+Pick **one** setup below. Do not run Django/Celery locally with Docker-only
+service addresses, or use one Redis/PostgreSQL locally and another in Docker.
 
-### Check Prerequisites
+## Option A: Everything runs on your machine (no Docker services)
+
+### 1. Start local PostgreSQL with pgvector and Redis
+
+Install PostgreSQL 16 with the pgvector extension and Redis 7 using your OS's
+packages or the projects' official installation instructions. On Debian/Ubuntu,
+the package names are commonly:
 
 ```bash
-# Check Python version
-python --version  # Should be 3.10+
-
-# Check if Redis is running
-redis-cli ping    # Should return: PONG
-
-# If Redis is not running, start it:
-redis-server &    # On macOS/Linux
-# or
-brew services start redis  # On macOS with Homebrew
+sudo apt update
+sudo apt install postgresql postgresql-contrib postgresql-16-pgvector redis-server
 ```
 
----
+If your distribution does not provide `postgresql-16-pgvector`, install pgvector
+for your installed PostgreSQL version using
+[pgvector's installation instructions](https://github.com/pgvector/pgvector#installation).
 
-## Step 1: Clone and Setup
+Start the services and create the app database:
 
 ```bash
-# Navigate to workspace
-cd /workspace
-
-# Create virtual environment
-python -m venv venv
-
-# Activate virtual environment
-# On Linux/macOS:
-source venv/bin/activate
-# On Windows:
-# venv\Scripts\activate
+sudo systemctl enable --now postgresql redis-server
+sudo -u postgres psql
 ```
 
----
+At the `psql` prompt, enter:
 
-## Step 2: Install Dependencies
+```sql
+CREATE USER raguser WITH PASSWORD 'ragpassword';
+CREATE DATABASE ragdb OWNER raguser;
+\connect ragdb
+CREATE EXTENSION IF NOT EXISTS vector;
+\q
+```
+
+Confirm PostgreSQL is listening on `5432` and Redis on `6379`:
 
 ```bash
-# Install Python packages
-pip install -r requirements.txt
+pg_isready -h 127.0.0.1 -p 5432
+redis-cli -h 127.0.0.1 -p 6379 ping
 ```
 
-**Expected output:**
-```
-Successfully installed Django-6.0.6 djangorestframework-3.17.1 celery-5.4.0 ...
-```
+Expected results are `accepting connections` and `PONG`.
 
----
+### 2. Configure and install the application
 
-## Step 3: Configure Environment
+From the repository root:
 
 ```bash
-# Copy example environment file
 cp .env.example .env
-
-# Edit .env with your credentials
-nano .env  # or use your preferred editor
+cp drive_service/.env.example drive_service/.env
 ```
 
-### Required Environment Variables
+The local templates use PostgreSQL `127.0.0.1:5432`, Redis `127.0.0.1:6379`,
+and local service URLs. Replace the placeholder Django/Groq/Google credentials
+as needed. Drive OAuth credentials are only needed for Google Drive features.
 
 ```bash
-# Django Settings
-SECRET_KEY=your-secret-key-here
-DEBUG=True
-
-# Celery & Redis (usually no change needed)
-CELERY_BROKER_URL=redis://localhost:6379/0
-CELERY_RESULT_BACKEND=redis://localhost:6379/0
-
-# Groq API Key (Required for Q&A feature)
-GROQ_API_KEY=gsk_your_groq_api_key_here
-
-# Optional: Google Drive Integration
-# GOOGLE_CLIENT_ID=your_client_id
-# GOOGLE_CLIENT_SECRET=your_client_secret
-```
-
-### Get Groq API Key
-
-1. Visit [Groq Console](https://console.groq.com/)
-2. Sign up or log in
-3. Create an API key
-4. Copy and paste into `.env`
-
----
-
-## Step 4: Database Setup
-
-```bash
-# Run database migrations
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt -r drive_service/requirements.txt
 python manage.py migrate
 ```
 
-**Expected output:**
-```
-Operations to perform:
-  Apply all migrations: admin, auth, contenttypes, rag, sessions
-Running migrations:
-  Applying contenttypes.0001_initial... OK
-  Applying auth.0001_initial... OK
-  ...
-```
+### 3. Run the local application services
 
-### Create Superuser (Optional - for Django Admin)
+Run each command in its own terminal from the repository root (activate `venv`
+in each Python terminal):
 
 ```bash
-python manage.py createsuperuser
-```
-
-Follow the prompts to set username, email, and password.
-
----
-
-## Step 5: Start Services
-
-You'll need **multiple terminal windows** to run all services.
-
-### Terminal 1: Redis (if not already running)
-
-```bash
-redis-server
-```
-
-Or as a background service:
-```bash
-redis-server --daemonize yes
-```
-
----
-
-### Terminal 2: Celery Worker
-
-```bash
-# Make sure virtual environment is activated
-source venv/bin/activate
-
-# Start Celery worker
-celery -A documind worker --loglevel=info
-```
-
-**Expected output:**
-```
- -------------- celery@hostname v5.4.0 (immunity)
---- ***** ----- 
--- ******* ---- Linux-5.15.0-x86_64-with-glibc2.31 2025-08-11 10:00:00
-- *** --- * --- 
-- ** ---------- [config]
-- ** ---------- .> app:         documind
-- ** ---------- .> broker:      redis://localhost:6379/0
-- ** ---------- .> loader:      celery.loaders.app.AppLoader
-- ** ---------- .> concurrency: 8 (prefork)
-
-[queues]
-.> celery           exchange=celery(direct) key=celery
-
-[tasks]
-.> rag.tasks.process_document_task
-
-[2025-08-11 10:00:00,000: INFO/MainProcess] Connected to redis://localhost:6379/0
-[2025-08-11 10:00:00,000: INFO/MainProcess] celery@hostname ready.
-```
-
----
-
-### Terminal 3: Django Development Server
-
-```bash
-# Make sure virtual environment is activated
-source venv/bin/activate
-
-# Start Django server
 python manage.py runserver
 ```
 
-**Expected output:**
+```bash
+celery -A core worker -l info
 ```
-Watching for file changes with StatReloader
-Performing system checks...
-
-System check identified no issues (0 silenced).
-August 11, 2025 - 10:00:00
-Django version 6.0.6, using settings 'documind.settings'
-Starting development server at http://127.0.0.1:8000/
-Quit the server with CONTROL-BREAK.
-```
-
----
-
-### Terminal 4: Drive Service (Optional)
-
-Only needed if you're using Google Drive integration.
 
 ```bash
 cd drive_service
-source venv/bin/activate  # or create separate venv
-uvicorn main:app --port 8001 --reload
+../venv/bin/uvicorn main:app --host 127.0.0.1 --port 8001 --reload
 ```
 
----
-
-## Step 6: Verify Installation
-
-### Test API Health
+Optional frontend, in another terminal:
 
 ```bash
-# List documents (should return empty list)
-curl http://localhost:8000/api/list/
-
-# Expected response:
-# {"success":true,"data":[]}
+cd frontend
+npm install
+npm run dev
 ```
 
-### Test Document Upload
+The API is at `http://127.0.0.1:8000`, Drive service at
+`http://127.0.0.1:8001`, and frontend at `http://localhost:3000`.
+
+## Option B: Everything runs in Docker Compose
+
+No local PostgreSQL or Redis installation is needed. Copy the Docker-specific
+environment files; do not use the local `.env.example` files for Compose:
 
 ```bash
-# Upload a test document
-curl -X POST http://localhost:8000/api/upload/ \
-  -F "file=@/path/to/your/test.pdf" \
-  -F "name=Test Document" \
-  -F "file_type=pdf"
+cp .env.docker.example .env.docker
+cp drive_service/.env.docker.example drive_service/.env.docker
 ```
 
-**Expected response:**
-```json
-{
-  "success": true,
-  "data": {
-    "id": 1,
-    "name": "Test Document",
-    "file_type": "pdf",
-    "is_processed": false,
-    ...
-  }
-}
-```
-
-### Check Processing Status
+Set the required keys in both files, then launch the complete stack:
 
 ```bash
-# Check document status
-curl http://localhost:8000/api/status/1/
+docker compose up --build -d
+docker compose exec django python manage.py migrate
+docker compose exec django python manage.py createsuperuser
 ```
 
-**Wait for processing:**
-```json
-{
-  "success": true,
-  "data": {
-    "id": 1,
-    "is_processed": true,
-    "chunk_count": 25,
-    ...
-  }
-}
-```
+Compose starts PostgreSQL/pgvector, Redis, Django, the Celery worker, the Drive
+service, and the frontend. App containers use Docker DNS names and internal
+ports: PostgreSQL `db:5432`, Redis `redis:6379`, Django `django:8000`, and Drive
+service `drive_service:8001`. From your host, the published PostgreSQL and
+Redis ports are `127.0.0.1:5433` and `127.0.0.1:6380`; these host ports are not
+the addresses the app containers should use.
 
-### Test Q&A
+Open the frontend at `http://localhost:3000` and Django at
+`http://localhost:8000`. Check startup and health with:
 
 ```bash
-# Ask a question
-curl -X POST http://localhost:8000/api/question/ \
-  -H "Content-Type: application/json" \
-  -d '{
-    "question": "What is this document about?",
-    "document_id": 1
-  }'
+docker compose ps
+docker compose logs -f db redis django celery_worker drive_service
 ```
 
-**Expected response:**
-```json
-{
-  "success": true,
-  "data": {
-    "question": "What is this document about?",
-    "answer": "This document discusses...",
-    "source_chunks": [...],
-    "confidence_score": 0.85
-  }
-}
-```
-
----
-
-## Common Issues & Solutions
-
-### Issue 1: Redis Connection Error
-
-**Error:**
-```
-celery.exceptions.OperatorError: Error connecting to Redis: Connection refused
-```
-
-**Solution:**
-```bash
-# Check if Redis is running
-redis-cli ping
-
-# If not running, start Redis
-redis-server
-
-# Or on macOS with Homebrew
-brew services start redis
-```
-
----
-
-### Issue 2: Database Locked
-
-**Error:**
-```
-OperationalError: database is locked
-```
-
-**Solution:**
-- Already configured with 30s timeout
-- Avoid running multiple write operations simultaneously
-- Consider migrating to PostgreSQL for production
-
----
-
-### Issue 3: Missing Groq API Key
-
-**Error:**
-```
-groq.AuthenticationError: No API key provided
-```
-
-**Solution:**
-1. Get API key from https://console.groq.com/
-2. Add to `.env`:
-   ```bash
-   GROQ_API_KEY=gsk_your_key_here
-   ```
-3. Restart Django server
-
----
-
-### Issue 4: File Upload Size Error
-
-**Error:**
-```
-{"file": ["File size must be less than 50MB"]}
-```
-
-**Solution:**
-- Ensure file is under 50MB
-- To increase limit, modify `rag/serializers.py`:
-  ```python
-  max_size = 100 * 1024 * 1024  # 100MB
-  ```
-
----
-
-### Issue 5: Celery Worker Not Processing Tasks
-
-**Symptoms:**
-- Document stuck in "is_processed: false"
-- No activity in Celery logs
-
-**Solution:**
-```bash
-# Check if Celery is running
-ps aux | grep celery
-
-# Restart Celery worker
-celery -A documind worker --loglevel=debug
-
-# Check Redis queue
-redis-cli
-> LLEN celery  # Should show pending tasks
-```
-
----
-
-## Next Steps
-
-### Explore the API
-
-See [API Documentation](./API.md) for complete endpoint reference.
-
-### Django Admin Interface
-
-Access the admin panel at: http://localhost:8000/admin/
-
-Login with superuser credentials created earlier.
-
-### Frontend Integration
-
-Connect your frontend to the API:
-
-```javascript
-// Example: Upload document
-const uploadDocument = async (file) => {
-  const formData = new FormData();
-  formData.append('file', file);
-  formData.append('name', file.name);
-  formData.append('file_type', file.name.split('.').pop());
-  
-  const response = await fetch('http://localhost:8000/api/upload/', {
-    method: 'POST',
-    body: formData,
-  });
-  
-  return await response.json();
-};
-```
-
-### Production Deployment
-
-See [Architecture Overview](./ARCHITECTURE.md) for deployment guidelines.
-
-Key considerations:
-- Use PostgreSQL instead of SQLite
-- Set `DEBUG=False`
-- Configure proper secrets management
-- Set up multiple Celery workers
-- Enable monitoring and logging
-
----
-
-## Development Tips
-
-### Run Tests
-
-```bash
-python manage.py test rag
-```
-
-### Code Formatting
-
-```bash
-# Install black and flake8
-pip install black flake8
-
-# Format code
-black .
-
-# Check code style
-flake8 .
-```
-
-### Watch Files for Changes
-
-Django auto-reloads on code changes during development.
-
-For Celery, use:
-```bash
-celery -A documind worker --loglevel=info --pool=solo
-```
-
-### Debug Mode
-
-Enable detailed error pages:
-```bash
-# In .env
-DEBUG=True
-```
-
-⚠️ **Never use DEBUG=True in production!**
-
----
-
-## Useful Commands Reference
-
-```bash
-# Database operations
-python manage.py migrate          # Apply migrations
-python manage.py makemigrations   # Create new migrations
-python manage.py dbshell          # Open database shell
-
-# Django shell
-python manage.py shell            # Interactive Python shell
-
-# Celery operations
-celery -A documind worker --loglevel=info        # Start worker
-celery -A documind flower                        # Start Flower UI
-celery -A documind inspect active                # Check active tasks
-celery -A documend purge                          # Clear queue (careful!)
-
-# Static files
-python manage.py collectstatic   # Collect static files (production)
-
-# Server
-python manage.py runserver       # Start dev server
-python manage.py runserver 0.0.0.0:8000  # Expose to network
-```
-
----
-
-## Getting Help
-
-- Check [Main README](../README.md) for overview
-- Review [API Docs](./API.md) for endpoint details
-- Read [Architecture](./ARCHITECTURE.md) for system design
-- Inspect logs in Celery and Django terminals
-- Search issues in project repository
-
----
-
-*Last Updated: August 2025*
+## Switching between modes
+
+Stop the mode you are using before switching. Stop Compose containers with
+`docker compose down` (this keeps the named database volume). For local mode,
+stop the locally running Django, Celery, and Drive processes. Do not run two
+app stacks against different databases and expect their data to be shared.
+
+If Django reports connection refused, compare its configured host/port with
+the selected mode:
+
+| Mode | Django database | Django/Celery Redis | Drive-service database |
+|---|---|---|---|
+| Local | `127.0.0.1:5432` | `127.0.0.1:6379` | `127.0.0.1:5432` |
+| Docker app containers | `db:5432` | `redis:6379` | `db:5432` |
+| Docker host tools | `127.0.0.1:5433` | `127.0.0.1:6380` | `127.0.0.1:5433` |

@@ -1,3 +1,5 @@
+import re
+
 from RagCore.Agent.state import AgentState
 from RagCore.Agent.tools import DocumentSearchTool
 from RagCore.ErrorsHandle.exceptions import AgentError
@@ -9,9 +11,13 @@ class AgentExecutor:
         self,
         search_tool: DocumentSearchTool,
         max_steps: int = 5,
+        retrieval_top_k: int = 20,
+        reranking_top_k: int = 5,
     ) -> None:
         self.search_tool = search_tool
         self.max_steps = max_steps
+        self.retrieval_top_k = retrieval_top_k
+        self.reranking_top_k = reranking_top_k
 
     def execute(
         self,
@@ -34,6 +40,8 @@ class AgentExecutor:
             results = self.search_tool.search(
                 query,
                 document_ids=state.document_ids,
+                retrieval_top_k=self.retrieval_top_k,
+                reranking_top_k=self.reranking_top_k,
             )
 
             state.retrieval_attempts += 1
@@ -46,12 +54,49 @@ class AgentExecutor:
         return self._deduplicate(all_candidates)
 
     @staticmethod
+    def _normalize_content(
+        content: str,
+    ) -> str:
+        return re.sub(
+            r"\s+",
+            " ",
+            content,
+        ).strip().casefold()
+
+    @classmethod
     def _deduplicate(
+        cls,
         candidates: list[RetrievalResult],
     ) -> list[RetrievalResult]:
-        unique: dict[str, RetrievalResult] = {}
+        unique_by_id: dict[
+            str,
+            RetrievalResult,
+        ] = {}
+
+        seen_content: set[str] = set()
 
         for candidate in candidates:
-            unique[candidate.chunk_id] = candidate
+            if candidate.chunk_id in unique_by_id:
+                continue
 
-        return list(unique.values())
+            normalized_content = cls._normalize_content(
+                candidate.content
+            )
+
+            if not normalized_content:
+                continue
+
+            if normalized_content in seen_content:
+                continue
+
+            unique_by_id[
+                candidate.chunk_id
+            ] = candidate
+
+            seen_content.add(
+                normalized_content
+            )
+
+        return list(
+            unique_by_id.values()
+        )

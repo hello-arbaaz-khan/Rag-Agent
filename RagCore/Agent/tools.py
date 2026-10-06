@@ -26,7 +26,10 @@ class DocumentSearchTool:
         retrieval_top_k: int = 20,
         reranking_top_k: int = 5,
     ) -> list[RetrievalResult]:
-        query = self.query_pipeline.process(query_text)
+
+        query = self.query_pipeline.process(
+            query_text
+        )
 
         embeddings = self.embedding_provider.embed(
             [query.normalize_text()]
@@ -39,12 +42,30 @@ class DocumentSearchTool:
 
         candidates = self.retrieval_pipeline.retrieve(
             embeddings[0],
+            query=query.normalize_text(),
             top_k=retrieval_top_k,
             document_ids=document_ids,
         )
 
-        return self.reranking_pipeline.rerank(
+        return self.rerank(
             query.normalize_text(),
             candidates,
             top_k=reranking_top_k,
+        )
+
+    def rerank(
+        self,
+        query_text: str,
+        candidates: list[RetrievalResult],
+        *,
+        top_k: int = 5,
+    ) -> list[RetrievalResult]:
+
+        if not candidates:
+            return []
+
+        return self.reranking_pipeline.rerank(
+            query_text,
+            candidates,
+            top_k=top_k,
         )

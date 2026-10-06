@@ -22,9 +22,9 @@ class Settings(BaseSettings):
     google_client_id: str
     google_client_secret: str
     fernet_key: str
-    state_signing_secret: str
-    redis_url: str = "redis://redis:6379/0"
+    state_signing_secret: str | None = None
+    redis_url: str = "redis://127.0.0.1:6379/0"
     drive_service_base_url: str = "http://localhost:8001"
-    frontend_base_url: str
+    frontend_base_url: str = "http://localhost:3000"
 
 settings = Settings()
