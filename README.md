@@ -80,6 +80,8 @@ The setup guide has separate instructions and environment files for each mode:
 
 For fully local services, `.env.example` and `drive_service/.env.example` use
 PostgreSQL at `127.0.0.1:5432` and Redis at `127.0.0.1:6379`.
+Set `FRONTEND_BASE_URL=http://localhost:3000` so Google Drive OAuth redirects
+back to the frontend's `/drive/callback` page.
 
 For a fully Docker setup, copy `.env.docker.example` to `.env.docker` and
 `drive_service/.env.docker.example` to `drive_service/.env.docker`; Compose

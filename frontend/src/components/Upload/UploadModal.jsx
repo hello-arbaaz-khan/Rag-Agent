@@ -1,15 +1,18 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { X } from "lucide-react";
 import { useAppContext } from "../../context/AppContext";
 import { documentApi } from "../../services/api";
+import { PATHS } from "../../router/paths";
 import FileDropzone from "./FileDropzone";
 import Spinner from "../Common/Spinner";
 
 const UploadModal = ({ open, onClose }) => {
   const { dispatch, addToast, loadDocuments } = useAppContext();
+  const navigate = useNavigate();
   const [file, setFile] = useState(null);
-  const [progress, setProgress] = useState(0);
   const [uploading, setUploading] = useState(false);
+  const [progress, setProgress] = useState(0);
   const [error, setError] = useState("");
 
   if (!open) return null;
@@ -32,15 +35,16 @@ const UploadModal = ({ open, onClose }) => {
         setProgress(Math.round((event.loaded * 100) / event.total));
       });
       dispatch({ type: "UPSERT_DOCUMENT", payload: document, select: true });
-      
-      // Reload documents to ensure frontend is synced with backend
-      await new Promise(r => setTimeout(r, 500));
+
+      // Reload documents to ensure frontend is synced with backend.
+      await new Promise((resolve) => setTimeout(resolve, 500));
       await loadDocuments();
-      
+
       addToast("Upload complete. Processing started.", "success");
       setFile(null);
       setProgress(0);
       onClose();
+      navigate(PATHS.chat(document.id));
     } catch (uploadError) {
       setError(uploadError.message);
       addToast(uploadError.message, "error");

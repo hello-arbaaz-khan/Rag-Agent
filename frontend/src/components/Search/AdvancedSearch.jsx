@@ -325,14 +325,10 @@ const AdvancedSearch = ({ onOpenInChat }) => {
           <table className="w-full text-left text-sm">
             <thead className="sticky top-0 z-10 bg-slate-900/95 text-xs uppercase tracking-wide text-slate-400 backdrop-blur">
               <tr>
-                <th className="px-4 py-3 font-semibold">Drive ID</th>
+                <th className="px-4 py-3 font-semibold">ID</th>
                 <th className="px-4 py-3 font-semibold">Name</th>
-                <th className="px-4 py-3 font-semibold">Mime Type</th>
-                <th className="px-4 py-3 font-semibold">Drive Modified At</th>
-                <th className="px-4 py-3 font-semibold">Sync Status</th>
-                <th className="px-4 py-3 font-semibold">Document ID</th>
-                <th className="px-4 py-3 font-semibold">Chunks</th>
-                <th className="px-4 py-3 text-right font-semibold">Actions</th>
+                <th className="px-4 py-3 font-semibold">Type</th>
+                <th className="px-4 py-3 font-semibold">Uploaded At</th>
               </tr>
             </thead>
             <tbody>
