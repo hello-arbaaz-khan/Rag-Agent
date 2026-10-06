@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useReducer } from "react";
 import { documentApi } from "../services/api";
+import { useAuth } from "./AuthContext";
 
 const AppContext = createContext(null);
 
@@ -34,14 +35,24 @@ const initialState = {
 const reducer = (state, action) => {
   switch (action.type) {
     case "SET_DOCUMENTS":
+      // The selected document comes from the URL (/chat/:id), so the list
+      // refresh must not pick one on its own.
       return {
         ...state,
         documents: action.payload,
         loadingDocuments: false,
-        apiError: "",
-        selectedDocumentId:
-          state.selectedDocumentId || action.payload[0]?.id || null
+        apiError: ""
       };
+
+    case "RESET_DOCUMENTS":
+      // selectedDocumentId is owned by the URL; leave it alone here.
+      return {
+        ...state,
+        documents: [],
+        loadingDocuments: true,
+        apiError: ""
+      };
+
     case "SET_API_ERROR":
       return { ...state, apiError: action.payload, loadingDocuments: false };
     case "SET_SELECTED_DOCUMENT":
@@ -66,8 +77,7 @@ const reducer = (state, action) => {
         ...state,
         documents,
         chatHistory,
-        selectedDocumentId:
-          state.selectedDocumentId === action.payload ? documents[0]?.id || null : state.selectedDocumentId
+        selectedDocumentId: state.selectedDocumentId
       };
     }
     case "ADD_MESSAGE": {
@@ -129,6 +139,7 @@ const reducer = (state, action) => {
 
 export const AppProvider = ({ children }) => {
   const [state, dispatch] = useReducer(reducer, initialState);
+  const { isAuthenticated } = useAuth();
 
   const addToast = useCallback((message, type = "info") => {
     const id = crypto.randomUUID();
@@ -147,6 +158,11 @@ export const AppProvider = ({ children }) => {
   }, []);
 
 useEffect(() => {
+  // Don't hit the API (and trigger a 401) while signed out; start from a
+  // clean slate each time someone signs in.
+  if (!isAuthenticated) return undefined;
+
+  dispatch({ type: "RESET_DOCUMENTS" });
   loadDocuments();
 
   // Only poll for list updates if no documents are processing
@@ -156,7 +172,7 @@ useEffect(() => {
   }, 10000);
 
   return () => clearInterval(interval);
-}, [loadDocuments]);
+}, [loadDocuments, isAuthenticated]);
 
 useEffect(() => {
   if (!state.selectedDocumentId) return;

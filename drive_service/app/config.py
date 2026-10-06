@@ -26,5 +26,6 @@ class Settings(BaseSettings):
     redis_url: str = "redis://127.0.0.1:6379/0"
     drive_service_base_url: str = "http://localhost:8001"
     frontend_base_url: str = "http://localhost:3000"
+    cors_extra_origins: list[str] = []
 
 settings = Settings()

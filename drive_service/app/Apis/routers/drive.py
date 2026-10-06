@@ -28,7 +28,9 @@ from app.Apis.schemas.drive import (
     DriveFileListResponse,
     DriveSyncQueuedResponse,
 )
-
+import socket
+from datetime import datetime
+from urllib.parse import urlencode
 
 os.environ["OAUTHLIB_RELAX_TOKEN_SCOPE"] = "1"
 
@@ -46,8 +48,15 @@ class DriveConnectResponse(BaseModel):
     google_email: str
 
 
+class DriveStatusResponse(BaseModel):
+    connected: bool
+    google_email: str | None = None
+    connected_at: datetime | None = None
+
+
 def _frontend_redirect(**params) -> RedirectResponse:
-    url = f"{settings.frontend_base_url}/?{urlencode(params)}"
+    base = settings.frontend_base_url.rstrip("/")
+    url = f"{base}/drive/callback?{urlencode(params)}"
     return RedirectResponse(url=url, status_code=302)
 
 
@@ -114,6 +123,28 @@ def connect(
 
     return {"auth_url": auth_url}
 
+@router.get(
+    "/status",
+    response_model=DriveStatusResponse,
+)
+def drive_status(
+    user_id: int = Depends(get_current_user_id),
+    db: Session = Depends(get_db),
+):
+    account = (
+        db.query(GoogleDriveAccount)
+        .filter_by(user_id=user_id)
+        .first()
+    )
+
+    if account is None:
+        return DriveStatusResponse(connected=False)
+
+    return DriveStatusResponse(
+        connected=True,
+        google_email=account.google_email,
+        connected_at=account.created_at,
+    )
 
 @router.get("/callback")
 def callback(

@@ -9,7 +9,11 @@ from app.Apis.dependencies import (
     get_current_user,
 )
 
+from apps.chat.models import ChatHistory
+from apps.documents.models import UploadedDocument
+
 from app.Apis.schemas.chat import (
+    ChatHistoryItem,
     ChatRequest,
     ChatResponse,
 )
@@ -81,3 +85,48 @@ def chat(
         document_name=result.document_name,
         chat_history_id=result.chat_history_id,
     )
+
+
+def _require_owned_document(document_id: int, user_id: int) -> None:
+    owned = UploadedDocument.objects.filter(
+        id=document_id,
+        user_id=user_id,
+    ).exists()
+
+    if not owned:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Document not found.",
+        )
+
+
+@router.get(
+    "/history/{document_id}",
+    response_model=list[ChatHistoryItem],
+)
+def get_chat_history(
+    document_id: int,
+    user=Depends(get_current_user),
+):
+    _require_owned_document(document_id, user)
+
+    return list(
+        ChatHistory.objects
+        .filter(document_id=document_id)
+        .order_by("created_at")
+    )
+
+
+@router.delete(
+    "/history/{document_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+def clear_chat_history(
+    document_id: int,
+    user=Depends(get_current_user),
+):
+    _require_owned_document(document_id, user)
+
+    ChatHistory.objects.filter(document_id=document_id).delete()
+
+    return None

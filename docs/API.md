@@ -74,6 +74,25 @@ Chat retrieves from the user's document through the existing RagCore retrieval
 and reranking pipeline, generates an answer, and persists it in Django
 `ChatHistory`.
 
+## Chat history
+
+Chat history is stored by document and can be listed or cleared by the owner.
+
+| Method | Endpoint | Purpose |
+|---|---|---|
+| `GET` | `/api/v1/chat/history/{document_id}` | Return chat turns for an owned document, oldest first |
+| `DELETE` | `/api/v1/chat/history/{document_id}` | Delete all chat history for an owned document |
+
+Each item contains `id`, `question`, `answer`, and `created_at`.
+
+## Drive status
+
+| Method | Endpoint | Purpose |
+|---|---|---|
+| `GET` | `/api/v1/drive/status` | Returns `connected`, `google_email`, and `connected_at` for the current authenticated user |
+
+If no Google account is linked, the response is `{"connected": false}`.
+
 ## Document search
 
 `GET /api/v1/search` requires a bearer token. Supported query parameters:
@@ -146,3 +165,27 @@ The service URLs are `http://localhost:8000` for Django authentication and
 `http://localhost:8001` for FastAPI. Compose exposes PostgreSQL on host port
 `5433` and Redis on host port `6380`; containers use their internal service
 addresses.
+
+## Frontend routing
+
+The React app is routed by the browser and the sidebar uses URL-driven state.
+
+| URL | Screen |
+|---|---|
+| `/` | Redirect to `/new` |
+| `/new` | New chat / welcome screen |
+| `/chat/:documentId` | Document chat |
+| `/documents` | Document library |
+| `/search` | Advanced search |
+| `/settings` | Settings and Drive connection |
+| `/login` | Sign in |
+| `/signup` | Create account |
+| `/verify-otp` | OTP verification |
+| `/forgot-password` | Reset password request |
+| `/reset-password` | Reset password |
+| `/drive/callback` | Google Drive OAuth callback page |
+
+Vite proxies `/api/auth` to Django and `/api/v1` to the FastAPI service using
+`DJANGO_URL` and `API_URL` environment variables. Local Vite defaults are
+`http://localhost:8000` and `http://localhost:8001`; Docker Compose sets these
+to `http://django:8000` and `http://drive_service:8001` on the Compose network.

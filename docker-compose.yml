@@ -112,8 +112,12 @@ services:
       - /app/node_modules
     ports:
       - "3000:3000"
+    environment:
+      DJANGO_URL: http://django:8000
+      API_URL: http://drive_service:8001
     depends_on:
       - django
+      - drive_service
 
 volumes:
   postgres-data:

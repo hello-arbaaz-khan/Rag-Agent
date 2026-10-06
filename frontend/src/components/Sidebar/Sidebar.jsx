@@ -1,6 +1,8 @@
+import { useNavigate } from "react-router-dom";
 import { ChevronsLeft, ChevronsRight, Clock, FileText, LogOut, PenSquare, Search, Settings, Sparkles } from "lucide-react";
 import { useAppContext } from "../../context/AppContext";
 import { useAuth } from "../../context/AuthContext";
+import { PATHS } from "../../router/paths";
 import DriveStatusBadge from "./DriveStatusBadge";
 
 const NAV_ITEMS = [
@@ -38,17 +40,16 @@ const Sidebar = ({
   collapsed = false,
   onToggleCollapse = () => {}
 }) => {
-  const { documents, selectedDocumentId, loadingDocuments, apiError, dispatch } = useAppContext();
+  const { documents, selectedDocumentId, loadingDocuments, apiError } = useAppContext();
   const { user, logout } = useAuth();
+  const navigate = useNavigate();
 
   const handleSelectChat = (documentId) => {
-    dispatch({ type: "SET_SELECTED_DOCUMENT", payload: documentId });
-    onNavigate("chat");
+    navigate(PATHS.chat(documentId));
   };
 
   const handleNewChat = () => {
-    dispatch({ type: "SET_SELECTED_DOCUMENT", payload: null });
-    onNavigate("chat");
+    navigate(PATHS.newChat);
   };
 
   if (collapsed) {
