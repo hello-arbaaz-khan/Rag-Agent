@@ -66,11 +66,13 @@ def get_drive_service(db: Session, user_id: int):
     return build('drive', 'v3', http=http, cache_discovery=False)
 
 
+# pyrefly: ignore [bad-function-definition]
 def list_files(db: Session, user_id: int, page_size: int = 50, page_token: str = None):
     service = get_drive_service(db, user_id)
     return _list_files_from_service(service, page_size, page_token)
 
 
+# pyrefly: ignore [bad-function-definition]
 def _list_files_from_service(service, page_size: int, page_token: str = None):
     result = service.files().list(
         pageSize=page_size,

@@ -1,40 +1,26 @@
 from rest_framework import serializers
-from apps.chat.models import ChatHistory
+
+from apps.chat.models import ChatMessage
 from apps.documents.models import UploadedDocument
 from apps.documents.serializers import DocumentChunksSerializer
 
 
-class QuestionSerializer(serializers.ModelSerializer):
-    """
-    Question validation serializer
-    """
+class QuestionSerializer(serializers.Serializer):
     question = serializers.CharField(required=True, max_length=1000, min_length=2)
-    document_id = serializers.IntegerField()
-
-    class Meta:
-        model = UploadedDocument
-        fields = [
-            'id',
-            'question',
-            'document_id',
-        ]
+    conversation_id = serializers.IntegerField()
 
     def validate_question(self, value):
-        """Question validation"""
         if not value.strip():
             raise serializers.ValidationError("Question can't be empty")
         return value
 
-    def validate_document_id(self, value):
-        """Check document exists"""
-        if not UploadedDocument.objects.filter(id=value).exists():
-            raise serializers.ValidationError(f"Document id {value} not exist")
+    def validate_conversation_id(self, value):
+        if not value or value < 1:
+            raise serializers.ValidationError("Invalid conversation id")
         return value
 
+
 class AnswerSerializer(serializers.Serializer):
-    """
-    Rag response serializer
-    """
     question = serializers.CharField()
     answer = serializers.CharField()
     source_chunk = DocumentChunksSerializer()
@@ -43,6 +29,6 @@ class AnswerSerializer(serializers.Serializer):
 
 class ChatHistorySerializer(serializers.ModelSerializer):
     class Meta:
-        model = ChatHistory
-        fields = ['id','document', 'question', 'answer', 'created_at']
+        model = ChatMessage
+        fields = ["id", "conversation", "role", "content", "created_at"]
         read_only_fields = fields
