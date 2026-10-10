@@ -10,25 +10,10 @@ from RagCore.Query.query import Query
 
 
 class AgentConfig(BaseModel):
-    retrieval_top_k: int = Field(
-        default=20,
-        gt=0,
-    )
-
-    reranking_top_k: int = Field(
-        default=5,
-        gt=0,
-    )
-
-    max_steps: int = Field(
-        default=5,
-        gt=0,
-    )
-
-    max_subqueries: int = Field(
-        default=5,
-        gt=0,
-    )
+    retrieval_top_k: int = Field(default=20, gt=0)
+    reranking_top_k: int = Field(default=5, gt=0)
+    max_steps: int = Field(default=5, gt=0)
+    max_subqueries: int = Field(default=5, gt=0)
 
 
 class Agent:
@@ -54,9 +39,10 @@ class Agent:
         conversation_context: str = "",
     ) -> str:
         if not isinstance(question, str) or not question.strip():
-            raise AgentError(
-                "Question must be a non-empty string."
-            )
+            raise AgentError("Question must be a non-empty string.")
+
+        if not isinstance(conversation_context, str):
+            raise AgentError("Conversation context must be a string.")
 
         state = AgentState(
             question=question.strip(),
@@ -77,26 +63,20 @@ class Agent:
                 state,
             )
 
-            context = self.context_builder.build(
-                candidates,
-            )
+            context = self.context_builder.build(candidates)
 
-            query = Query(
-                text=state.question,
-            )
+            query = Query(text=state.question)
 
             answer = self.generation_pipeline.generate(
                 query,
                 context,
+                conversation_context=state.conversation_context,
             )
 
             state.final_answer = answer
-
             return answer
 
         except AgentError:
             raise
         except Exception as exc:
-            raise AgentError(
-                str(exc)
-            ) from exc
+            raise AgentError(str(exc)) from exc

@@ -8,7 +8,7 @@ import {
   Plus,
   Sparkles,
   Trash2,
-  X
+  X,
 } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useAppContext } from "../../context/AppContext";
@@ -17,16 +17,32 @@ import { conversationApi, documentApi } from "../../services/api";
 import { PATHS } from "../../router/paths";
 import ChatInput from "./ChatInput";
 import ChatMessage from "./ChatMessage";
-import TypingIndicator from "./TypingIndicator";
 
 const makeTitle = (message) => {
   const cleaned = message.replace(/\s+/g, " ").trim();
-
   if (!cleaned) return "New chat";
 
   return cleaned.length > 60
     ? `${cleaned.slice(0, 57).trimEnd()}...`
     : cleaned;
+};
+
+const makeOptimisticId = (role) =>
+  `local-${role}-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+
+const findCompletedPair = (messages, question) => {
+  for (let i = messages.length - 2; i >= 0; i -= 1) {
+    if (
+      messages[i]?.role === "user" &&
+      messages[i]?.content?.trim() === question.trim() &&
+      messages[i + 1]?.role === "assistant" &&
+      messages[i + 1]?.content?.trim()
+    ) {
+      return true;
+    }
+  }
+
+  return false;
 };
 
 const WelcomeScreen = () => {
@@ -69,7 +85,7 @@ const ChatArea = ({ conversationId, onUploadClick }) => {
     addToast,
     loadDocuments,
     loadConversations,
-    loadConversation
+    loadConversation,
   } = useAppContext();
 
   const location = useLocation();
@@ -81,6 +97,7 @@ const ChatArea = ({ conversationId, onUploadClick }) => {
   const [uploading, setUploading] = useState(false);
   const [loadingAnswer, setLoadingAnswer] = useState(false);
   const [error, setError] = useState("");
+  const [optimisticTurn, setOptimisticTurn] = useState(null);
 
   const fileInputRef = useRef(null);
   const scrollRef = useRef(null);
@@ -96,6 +113,7 @@ const ChatArea = ({ conversationId, onUploadClick }) => {
 
     if (!conversationId) {
       dispatch({ type: "RESET_CHAT" });
+      setOptimisticTurn(null);
 
       const initialDocumentId = Number(
         location.state?.initialDocumentId
@@ -140,15 +158,15 @@ const ChatArea = ({ conversationId, onUploadClick }) => {
     dispatch,
     addToast,
     navigate,
-    location.state
+    location.state,
   ]);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({
       top: scrollRef.current.scrollHeight,
-      behavior: "smooth"
+      behavior: "smooth",
     });
-  }, [messages.length, loadingAnswer]);
+  }, [messages.length, loadingAnswer, optimisticTurn?.assistantMessage?.status]);
 
   const selectedDocuments = useMemo(
     () =>
@@ -210,7 +228,7 @@ const ChatArea = ({ conversationId, onUploadClick }) => {
 
         dispatch({
           type: "UPSERT_DOCUMENT",
-          payload: document
+          payload: document,
         });
       }
 
@@ -229,6 +247,201 @@ const ChatArea = ({ conversationId, onUploadClick }) => {
       addToast(uploadError.message, "error");
     } finally {
       setUploading(false);
+    }
+  };
+
+  /*
+   * Handles both first sends and retries.
+   *
+   * The optimistic user message is kept visible until a saved response
+   * is loaded or the user retries successfully.
+   */
+  const sendTurn = async ({
+    questionText,
+    targetConversationId,
+    documentIds,
+    userMessageId,
+    isRetry = false,
+  }) => {
+    if (submitLock.current) return;
+
+    submitLock.current = true;
+    setLoadingAnswer(true);
+    setError("");
+
+    setOptimisticTurn((current) =>
+      current
+        ? {
+            ...current,
+            conversationId: targetConversationId ?? current.conversationId,
+            assistantMessage: {
+              ...current.assistantMessage,
+              status: "pending",
+              content: "",
+              error: "",
+            },
+          }
+        : current
+    );
+
+    let conversationIdForRecovery = targetConversationId ?? null;
+
+    try {
+      let conversation = conversationIdForRecovery
+        ? await conversationApi.get(conversationIdForRecovery)
+        : null;
+
+      const isNewConversation = !conversation;
+
+      if (!conversation) {
+        conversation = await conversationApi.create({
+          title: makeTitle(questionText),
+          documentIds,
+        });
+
+        conversationIdForRecovery = conversation.id;
+
+        dispatch({
+          type: "UPSERT_CONVERSATION",
+          payload: conversation,
+        });
+
+        setOptimisticTurn((current) =>
+          current
+            ? { ...current, conversationId: conversation.id }
+            : current
+        );
+
+        // Navigate as soon as the conversation exists, not after
+        // generation finishes. This keeps the chat and sidebar responsive.
+        navigate(PATHS.chat(conversation.id), {
+          replace: true,
+          state: null,
+        });
+      } else {
+        const attachedIds = (conversation.documents || []).map(
+          (doc) => Number(doc.id)
+        );
+
+        const missingIds = documentIds.filter(
+          (id) => !attachedIds.includes(Number(id))
+        );
+
+        if (missingIds.length) {
+          await conversationApi.attachDocuments(
+            conversation.id,
+            missingIds
+          );
+
+          conversation = await conversationApi.get(conversation.id);
+
+          dispatch({
+            type: "UPSERT_CONVERSATION",
+            payload: conversation,
+          });
+        }
+      }
+
+      /*
+       * On retry, first check whether the server already saved the answer.
+       * This helps recover when the server finished but the response was lost.
+       */
+      if (isRetry) {
+        try {
+          const savedMessages = await conversationApi.listMessages(
+            conversation.id
+          );
+
+          if (findCompletedPair(savedMessages, questionText)) {
+            dispatch({
+              type: "SET_MESSAGES",
+              payload: savedMessages,
+            });
+
+            setOptimisticTurn(null);
+            await loadConversations();
+            return;
+          }
+        } catch {
+          // If the check itself fails, allow the user to retry the request.
+        }
+      }
+
+      await conversationApi.sendMessage(
+        conversation.id,
+        questionText
+      );
+
+      const latestMessages = await conversationApi.listMessages(
+        conversation.id
+      );
+
+      dispatch({
+        type: "SET_MESSAGES",
+        payload: latestMessages,
+      });
+
+      setOptimisticTurn(null);
+      await loadConversations();
+
+      if (isNewConversation) {
+        navigate(PATHS.chat(conversation.id), {
+          replace: true,
+          state: null,
+        });
+      }
+    } catch (submitError) {
+      /*
+       * A timeout or disconnected browser does not always mean the backend
+       * failed. Check whether the answer was saved before showing Retry.
+       */
+      let recovered = false;
+
+      if (conversationIdForRecovery) {
+        try {
+          const savedMessages = await conversationApi.listMessages(
+            conversationIdForRecovery
+          );
+
+          if (findCompletedPair(savedMessages, questionText)) {
+            dispatch({
+              type: "SET_MESSAGES",
+              payload: savedMessages,
+            });
+
+            setOptimisticTurn(null);
+            recovered = true;
+          }
+        } catch {
+          // Keep the local message and offer retry below.
+        }
+      }
+
+      if (!recovered) {
+        setError(
+          "The answer could not be confirmed. Your question is still here; try again when your connection is available."
+        );
+
+        setOptimisticTurn((current) =>
+          current
+            ? {
+                ...current,
+                conversationId:
+                  conversationIdForRecovery ?? current.conversationId,
+                assistantMessage: {
+                  ...current.assistantMessage,
+                  status: "failed",
+                  content:
+                    "I couldn't confirm the answer. Your question is saved here in the chat. You can retry.",
+                  error: submitError.message,
+                },
+              }
+            : current
+        );
+      }
+    } finally {
+      setLoadingAnswer(false);
+      submitLock.current = false;
     }
   };
 
@@ -268,89 +481,52 @@ const ChatArea = ({ conversationId, onUploadClick }) => {
       return;
     }
 
-    submitLock.current = true;
-    setLoadingAnswer(true);
-    setError("");
+    const turn = {
+      question: trimmed,
+      conversationId: currentConversation?.id ?? null,
+      documentIds: [...selectedDocumentIds],
+      userMessage: {
+        id: makeOptimisticId("user"),
+        role: "user",
+        content: trimmed,
+      },
+      assistantMessage: {
+        id: makeOptimisticId("assistant"),
+        role: "assistant",
+        content: "",
+        status: "pending",
+      },
+    };
+
+    setOptimisticTurn(turn);
     setQuestion("");
+    setError("");
 
-    try {
-      let conversation = currentConversation;
-      const isNewConversation = !conversation;
+    await sendTurn({
+      questionText: turn.question,
+      targetConversationId: turn.conversationId,
+      documentIds: turn.documentIds,
+      userMessageId: turn.userMessage.id,
+    });
+  };
 
-      if (isNewConversation) {
-        conversation = await conversationApi.create({
-          title: makeTitle(trimmed),
-          documentIds: selectedDocumentIds
-        });
+  const handleRetry = async () => {
+    if (!optimisticTurn || loadingAnswer || submitLock.current) return;
 
-        dispatch({
-          type: "UPSERT_CONVERSATION",
-          payload: conversation
-        });
-      } else {
-        const attachedIds = (
-          conversation.documents || []
-        ).map((doc) => Number(doc.id));
-
-        const missingIds = selectedDocumentIds.filter(
-          (id) => !attachedIds.includes(Number(id))
-        );
-
-        if (missingIds.length) {
-          await conversationApi.attachDocuments(
-            conversation.id,
-            missingIds
-          );
-
-          conversation = await conversationApi.get(
-            conversation.id
-          );
-
-          dispatch({
-            type: "UPSERT_CONVERSATION",
-            payload: conversation
-          });
-        }
-      }
-
-      await conversationApi.sendMessage(
-        conversation.id,
-        trimmed
-      );
-
-      const latestMessages =
-        await conversationApi.listMessages(conversation.id);
-
-      dispatch({
-        type: "SET_MESSAGES",
-        payload: latestMessages
-      });
-
-      await loadConversations();
-
-      if (isNewConversation) {
-        navigate(PATHS.chat(conversation.id), {
-          replace: true,
-          state: null
-        });
-      }
-    } catch (submitError) {
-      setError(submitError.message);
-      setQuestion(trimmed);
-      addToast(submitError.message, "error");
-    } finally {
-      setLoadingAnswer(false);
-      submitLock.current = false;
-    }
+    await sendTurn({
+      questionText: optimisticTurn.question,
+      targetConversationId: optimisticTurn.conversationId,
+      documentIds: optimisticTurn.documentIds,
+      userMessageId: optimisticTurn.userMessage.id,
+      isRetry: true,
+    });
   };
 
   const handleDeleteConversation = async () => {
     if (!currentConversation) return;
 
     if (
-      !window.confirm(
-        "Delete this conversation and its messages?"
-      )
+      !window.confirm("Delete this conversation and its messages?")
     ) {
       return;
     }
@@ -360,13 +536,12 @@ const ChatArea = ({ conversationId, onUploadClick }) => {
 
       dispatch({
         type: "REMOVE_CONVERSATION",
-        payload: currentConversation.id
+        payload: currentConversation.id,
       });
 
+      setOptimisticTurn(null);
       await loadConversations();
-
       navigate(PATHS.newChat, { replace: true });
-
       addToast("Conversation deleted.", "success");
     } catch (deleteError) {
       addToast(deleteError.message, "error");
@@ -377,6 +552,14 @@ const ChatArea = ({ conversationId, onUploadClick }) => {
     event?.preventDefault?.();
     handleSubmit();
   };
+
+  const displayedMessages = optimisticTurn
+    ? [
+        ...messages,
+        optimisticTurn.userMessage,
+        optimisticTurn.assistantMessage,
+      ]
+    : messages;
 
   return (
     <main className="flex h-full min-w-0 flex-1 flex-col bg-white dark:bg-brand-bg">
@@ -396,9 +579,7 @@ const ChatArea = ({ conversationId, onUploadClick }) => {
         <div className="flex shrink-0 items-center gap-2">
           <button
             type="button"
-            onClick={() =>
-              setShowDocumentPicker((open) => !open)
-            }
+            onClick={() => setShowDocumentPicker((open) => !open)}
             className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 dark:border-white/10 dark:text-slate-200 dark:hover:bg-white/5"
           >
             <Plus className="h-4 w-4" />
@@ -443,9 +624,7 @@ const ChatArea = ({ conversationId, onUploadClick }) => {
               >
                 <input
                   type="checkbox"
-                  checked={selectedDocumentIds.includes(
-                    Number(doc.id)
-                  )}
+                  checked={selectedDocumentIds.includes(Number(doc.id))}
                   onChange={() => toggleDocument(doc.id)}
                   className="h-4 w-4 accent-blue-600"
                 />
@@ -457,9 +636,7 @@ const ChatArea = ({ conversationId, onUploadClick }) => {
                 </span>
 
                 {doc.processing_error ? (
-                  <span className="text-xs text-red-500">
-                    Failed
-                  </span>
+                  <span className="text-xs text-red-500">Failed</span>
                 ) : doc.is_processed ? (
                   <span className="flex items-center gap-1 text-xs text-emerald-600">
                     <CheckCircle2 className="h-3.5 w-3.5" />
@@ -516,10 +693,7 @@ const ChatArea = ({ conversationId, onUploadClick }) => {
                   key={doc.id}
                   className="inline-flex max-w-full items-center gap-2 rounded-full bg-blue-100 px-3 py-1 text-xs font-medium text-blue-800 dark:bg-blue-500/15 dark:text-blue-200"
                 >
-                  <span className="max-w-52 truncate">
-                    {doc.name}
-                  </span>
-
+                  <span className="max-w-52 truncate">{doc.name}</span>
                   <button
                     type="button"
                     onClick={() => toggleDocument(doc.id)}
@@ -544,33 +718,30 @@ const ChatArea = ({ conversationId, onUploadClick }) => {
         ref={scrollRef}
         className="min-h-0 flex-1 overflow-y-auto px-4 py-5 sm:px-6"
       >
-        {!conversationId && !messages.length ? (
+        {!conversationId && !displayedMessages.length && !loadingAnswer ? (
           <WelcomeScreen />
-        ) : loadingMessages ? (
+        ) : loadingMessages && !optimisticTurn ? (
           <div className="flex h-full items-center justify-center text-sm text-slate-500">
             Loading conversation...
           </div>
-        ) : !messages.length && !loadingAnswer ? (
+        ) : !displayedMessages.length && !loadingAnswer ? (
           <div className="flex h-full items-center justify-center text-sm text-slate-500">
             Send a message to start this conversation.
           </div>
         ) : (
           <div className="space-y-5">
-            {messages.map((message) => (
+            {displayedMessages.map((message) => (
               <ChatMessage
                 key={message.id}
                 message={message}
+                onRetry={
+                  message.id === optimisticTurn?.assistantMessage?.id
+                    ? handleRetry
+                    : undefined
+                }
+                retryDisabled={loadingAnswer}
               />
             ))}
-
-            {loadingAnswer ? (
-              <div className="flex gap-3">
-                <div className="mt-1 flex h-9 w-9 items-center justify-center rounded-xl bg-violet-500/15 text-violet-500">
-                  <Bot className="h-5 w-5" />
-                </div>
-                <TypingIndicator />
-              </div>
-            ) : null}
           </div>
         )}
       </section>
@@ -590,9 +761,7 @@ const ChatArea = ({ conversationId, onUploadClick }) => {
           disabled={
             selectedDocuments.length > 0 && !allDocumentsReady
           }
-          onAttachClick={() =>
-            setShowDocumentPicker((open) => !open)
-          }
+          onAttachClick={() => setShowDocumentPicker((open) => !open)}
           floating
         />
 
