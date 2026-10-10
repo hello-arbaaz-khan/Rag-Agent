@@ -2,7 +2,9 @@ from pydantic import BaseModel, Field
 
 
 class ContextConfig(BaseModel):
-    max_chunks: int = Field(default=5, gt=0)
+    # Keep enough evidence for comparisons across several documents.
+    # This is a maximum, not a guarantee that every document is covered.
+    max_chunks: int = Field(default=10, gt=0)
     separator: str = "\n\n---\n\n"
 
 
